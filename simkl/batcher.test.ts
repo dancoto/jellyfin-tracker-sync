@@ -168,9 +168,10 @@ describe('Simkl Scrobble Batcher & Debouncer', () => {
         anilistId: 7740,
         anilistEpisode: 2,
         episodeNumber: 2,
-        isSpecial: true,
-        seriesName: "Queen's Blade 2: The Evil Eye Specials",
-        episodeName: 'Special 2',
+        seasonNumber: 1,
+        isSpecial: false,
+        seriesName: "Queen's Blade 2",
+        episodeName: 'Episode 2',
         tvdbId: '87491',
       },
     ];
@@ -188,8 +189,30 @@ describe('Simkl Scrobble Batcher & Debouncer', () => {
 
     const meta = notFoundMap.get('7740');
     expect(meta).toBeDefined();
-    expect(meta?.isSpecial).toBe(true);
+    expect(meta?.isSpecial).toBe(false);
     expect(meta?.isAnime).toBe(true);
+  });
+
+  test('buildSyncPayload should exclude anime specials (isSpecial: true or seasonNumber: 0) from Simkl payload', () => {
+    const items = [
+      {
+        kind: 'anime_episode' as const,
+        anilistId: 7740,
+        anilistEpisode: 1,
+        episodeNumber: 1,
+        seasonNumber: 0,
+        isSpecial: true,
+        seriesName: "Queen's Blade Specials",
+        episodeName: 'Special 1',
+        tvdbId: '87491',
+      },
+    ];
+
+    const { payload, notFoundMap } = buildSyncPayload(items);
+
+    expect(payload.anime).toBeUndefined();
+    expect(payload.shows).toBeUndefined();
+    expect(notFoundMap.size).toBe(0);
   });
 
   test('buildSyncPayload should route anime without anilistId to payload.shows (TVDB fallback)', () => {

@@ -180,14 +180,13 @@ export const importJellyfinAnimeMappings = async (
         }
       }
 
-      if (!tvdbId) {
-        logger.warn(
-          `[Importer] Series "${series.Name}" (ID ${series.Id}) missing TVDB ID in Jellyfin. Skipping.`,
-        );
-        continue;
-      }
+      const tmdbId = sProv.Tmdb || sProv.tmdb;
+      const showKey = tvdbId
+        ? String(tvdbId).trim()
+        : tmdbId
+          ? `tmdb-${String(tmdbId).trim()}`
+          : `jf-${String(series.Id).trim()}`;
 
-      const showKey = String(tvdbId).trim();
       let show = currentOverrides[showKey];
       if (!show) {
         show = {
@@ -252,11 +251,13 @@ export const importJellyfinAnimeMappings = async (
     for (const movie of moviesList) {
       const mProv = movie.ProviderIds ?? {};
       const tvdbId = mProv.Tvdb || mProv.tvdb;
-      if (!tvdbId) {
-        continue;
-      }
+      const tmdbId = mProv.Tmdb || mProv.tmdb;
+      const showKey = tvdbId
+        ? String(tvdbId).trim()
+        : tmdbId
+          ? `tmdb-${String(tmdbId).trim()}`
+          : `jf-${String(movie.Id).trim()}`;
 
-      const showKey = String(tvdbId).trim();
       let show = currentOverrides[showKey];
       if (!show) {
         show = {

@@ -17,6 +17,7 @@ describe('Main Webhook Handler', () => {
   let fetchMock: any;
   let originalConfig: any;
   let tempOverridesPath: string;
+  const originalFetch = global.fetch;
 
   beforeEach(() => {
     clearSeriesSyncQueue();
@@ -185,6 +186,7 @@ describe('Main Webhook Handler', () => {
   });
 
   afterEach(() => {
+    global.fetch = originalFetch;
     clearSeriesSyncQueue();
     resetSeriesSyncRunner();
     defaultAnimeResolver.setTvdbOverridesPath(undefined);
@@ -196,6 +198,7 @@ describe('Main Webhook Handler', () => {
   });
 
   afterAll(async () => {
+    global.fetch = originalFetch;
     defaultAnimeResolver.reset();
     await defaultAnimeResolver.initialize();
   });
@@ -281,7 +284,24 @@ describe('Main Webhook Handler', () => {
     expect(simklBody.shows[0].title).toBe('Breaking Bad');
   });
 
-  test('should completely exclude and skip webhook sync when LibraryName is Other Anime', async () => {
+  test('should skip Simkl and send private: true to AniList when library is in private_anime_libraries', async () => {
+    appConfig.jellyfin = {
+      ...appConfig.jellyfin!,
+      private_anime_libraries: ['Other Anime', 'Other Anime Movies'],
+    };
+    appConfig.anilist = {
+      users: { 'test-user': 'mock-anilist-token' },
+    };
+
+    defaultAnimeResolver.ensureShowInOverrides({
+      tvdbId: '364395',
+      title: 'Bible Black',
+      seasonNumber: 1,
+      episodeNumber: 1,
+      anilistId: 99911,
+      anilistEpisode: 1,
+    });
+
     const payload: any = {
       NotificationUsername: 'test-user',
       ItemType: 'Episode',
@@ -296,12 +316,44 @@ describe('Main Webhook Handler', () => {
       Series_Provider_tvdb: '364395',
     };
 
-    await handleWebhook(payload);
+    await handleWebhook(payload, { debounceMs: 0 });
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    const simklCalls = fetchMock.mock.calls.filter((c: any) =>
+      c[0]?.toString().includes('simkl.com'),
+    );
+    expect(simklCalls.length).toBe(0);
+
+    const anilistCalls = fetchMock.mock.calls.filter((c: any) =>
+      c[0]?.toString().includes('graphql.anilist.co'),
+    );
+    expect(anilistCalls.length).toBeGreaterThan(0);
+    const anilistMutationCall = anilistCalls.find((c: any) => {
+      const b = JSON.parse(c[1]?.body ?? '{}');
+      return b.query?.includes('SaveMediaListEntry');
+    });
+    expect(anilistMutationCall).toBeDefined();
+    const mutationBody = JSON.parse(anilistMutationCall[1].body);
+    expect(mutationBody.variables.private).toBe(true);
   });
 
-  test('should completely exclude and skip webhook sync when LibraryName is Other Anime Movies', async () => {
+  test('should skip Simkl and send private: true to AniList for private anime movies', async () => {
+    appConfig.jellyfin = {
+      ...appConfig.jellyfin!,
+      private_anime_libraries: ['Other Anime', 'Other Anime Movies'],
+    };
+    appConfig.anilist = {
+      users: { 'test-user': 'mock-anilist-token' },
+    };
+
+    defaultAnimeResolver.ensureShowInOverrides({
+      tvdbId: 'tmdb-999999',
+      title: 'Adult Anime Movie',
+      seasonNumber: 0,
+      episodeNumber: 1,
+      anilistId: 88822,
+      anilistEpisode: 1,
+    });
+
     const payload: any = {
       NotificationUsername: 'test-user',
       ItemType: 'Movie',
@@ -313,18 +365,36 @@ describe('Main Webhook Handler', () => {
       Provider_tmdb: '999999',
     };
 
-    await handleWebhook(payload);
+    await handleWebhook(payload, { debounceMs: 0 });
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    const simklCalls = fetchMock.mock.calls.filter((c: any) =>
+      c[0]?.toString().includes('simkl.com'),
+    );
+    expect(simklCalls.length).toBe(0);
+
+    const anilistCalls = fetchMock.mock.calls.filter((c: any) =>
+      c[0]?.toString().includes('graphql.anilist.co'),
+    );
+    const anilistMutationCall = anilistCalls.find((c: any) => {
+      const b = JSON.parse(c[1]?.body ?? '{}');
+      return b.query?.includes('SaveMediaListEntry');
+    });
+    expect(anilistMutationCall).toBeDefined();
+    const mutationBody = JSON.parse(anilistMutationCall[1].body);
+    expect(mutationBody.variables.private).toBe(true);
   });
 
-  test('should completely exclude and skip webhook sync when path contains other anime', async () => {
+  test('should completely exclude and skip webhook sync when LibraryName is in excluded_libraries', async () => {
+    appConfig.jellyfin = {
+      ...appConfig.jellyfin!,
+      excluded_libraries: ['Excluded Shows'],
+    };
     const payload: any = {
       NotificationUsername: 'test-user',
       ItemType: 'Episode',
       Name: 'Episode 1',
-      SeriesName: 'Adult Show',
-      Path: '/data/media/other-anime/show/ep1.mkv',
+      SeriesName: 'Excluded Series',
+      LibraryName: 'Excluded Shows',
       SeasonNumber: 1,
       EpisodeNumber: 1,
       NotificationType: 'PlaybackStop',
@@ -462,7 +532,7 @@ describe('Main Webhook Handler', () => {
     expect(simklBody.shows[0].seasons[0].episodes[0].number).toBe(1);
   });
 
-  test('should fallback to TVDB Season 0 pipeline if anime episode is a special (S0) and has NO matching AniList mapping', async () => {
+  test('should skip Simkl scrobble if anime episode is a special (S0) and has NO matching AniList mapping', async () => {
     const payload: any = {
       NotificationUsername: 'test-user',
       ItemType: 'Episode',
@@ -482,11 +552,7 @@ describe('Main Webhook Handler', () => {
     const simklCalls = fetchMock.mock.calls.filter((c: any) =>
       c[0].toString().includes('api.simkl.com'),
     );
-    expect(simklCalls.length).toBe(1);
-    const simklBody = JSON.parse(simklCalls[0][1].body);
-    expect(simklBody.shows[0].ids.tvdb).toBe('999999');
-    expect(simklBody.shows[0].seasons[0].number).toBe(0);
-    expect(simklBody.shows[0].seasons[0].episodes[0].number).toBe(1);
+    expect(simklCalls.length).toBe(0);
 
     const ntfyCalls = fetchMock.mock.calls.filter((c: any) =>
       c[0].toString().includes('http://ntfy-mock'),
@@ -1240,10 +1306,10 @@ describe('Main Webhook Handler', () => {
       '444333': {
         title: 'Special Anime OVA',
         seasons: {
-          '0': {
+          '1': {
             episodes: {
               '1': {
-                name: 'Unmapped Special OVA',
+                name: 'Unmapped Anime Ep',
                 skipAniList: true,
               },
             },
@@ -1256,10 +1322,10 @@ describe('Main Webhook Handler', () => {
     const payload: any = {
       NotificationUsername: 'test-user',
       ItemType: 'Episode',
-      Name: 'Unmapped Special OVA',
+      Name: 'Unmapped Anime Ep',
       SeriesName: 'Special Anime OVA',
       LibraryName: 'Anime Shows',
-      SeasonNumber: 0,
+      SeasonNumber: 1,
       EpisodeNumber: 1,
       NotificationType: 'PlaybackStop',
       RunTimeTicks: 1000,
@@ -1270,14 +1336,14 @@ describe('Main Webhook Handler', () => {
     await handleWebhook(payload, { debounceMs: 50 });
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // Simkl receives standard TV show scrobble with TVDB ID (Season 0)
+    // Simkl receives standard TV show scrobble with TVDB ID (Season 1)
     const simklCalls = fetchMock.mock.calls.filter((c: any) =>
       c[0].toString().includes('api.simkl.com'),
     );
     expect(simklCalls.length).toBe(1);
     const simklBody = JSON.parse(simklCalls[0][1].body);
     expect(simklBody.shows[0].ids.tvdb).toBe('444333');
-    expect(simklBody.shows[0].seasons[0].number).toBe(0);
+    expect(simklBody.shows[0].seasons[0].number).toBe(1);
     expect(simklBody.shows[0].seasons[0].episodes[0].number).toBe(1);
 
     // AniList is skipped
@@ -1393,28 +1459,21 @@ describe('Main Webhook Handler', () => {
       expect(syncMock.mock.calls[0]![1]?.jellyfinSeriesId).toBe('jf-movie-guid-1');
     });
 
-    test('should ignore ItemAdded for items in explicitly excluded libraries (Other Anime / Other Anime Movies)', async () => {
+    test('should ignore ItemAdded for items in explicitly excluded libraries', async () => {
+      appConfig.jellyfin = {
+        ...appConfig.jellyfin!,
+        excluded_libraries: ['Excluded Anime'],
+      };
       const syncMock = mock(async () => ({}));
       setSeriesSyncRunner(syncMock as any);
 
-      // Other Anime
       await handleWebhook({
         NotificationType: 'ItemAdded',
         ItemType: 'Episode',
         Name: 'Side Episode',
         SeriesName: 'Other Anime Show',
-        LibraryName: 'Other Anime',
+        LibraryName: 'Excluded Anime',
         Series_Provider_tvdb: '99999',
-      });
-      expect(getPendingSeriesSyncCount()).toBe(0);
-
-      // Other Anime Movies
-      await handleWebhook({
-        NotificationType: 'ItemAdded',
-        ItemType: 'Movie',
-        Name: 'Side Movie',
-        LibraryName: 'Other Anime Movies',
-        Provider_tvdb: '88888',
       });
       expect(getPendingSeriesSyncCount()).toBe(0);
       expect(syncMock).not.toHaveBeenCalled();

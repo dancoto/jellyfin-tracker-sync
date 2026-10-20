@@ -1,4 +1,13 @@
 <td class="ep-num">E{{ epNum() }}</td>
+@if (!isMovie()) {
+  <td class="disk-col">
+    @if (exists()) {
+      <span class="badge-disk-exists" matTooltip="Episode exists on disk">✓</span>
+    } @else {
+      <span class="badge-disk-missing" matTooltip="Episode missing from disk">-</span>
+    }
+  </td>
+}
 <td class="ep-name" [matTooltip]="epName()">{{ epName() }}</td>
 <td>
   @if (official(); as off) {

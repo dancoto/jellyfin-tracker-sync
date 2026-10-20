@@ -31,6 +31,7 @@ export class ControlsBarComponent {
   allExpanded = input<boolean>(false);
   isSyncing = input<boolean>(false);
   isRetiring = input<boolean>(false);
+  includePrivate = input<boolean>(false);
   filterCounts = input<{
     all: number;
     unmapped: number;
@@ -42,6 +43,7 @@ export class ControlsBarComponent {
   searchChange = output<string>();
   filterChange = output<string>();
   sortChange = output<string>();
+  includePrivateChange = output<boolean>();
   syncLibrary = output<void>();
   retireRedundant = output<void>();
   bulkImport = output<void>();

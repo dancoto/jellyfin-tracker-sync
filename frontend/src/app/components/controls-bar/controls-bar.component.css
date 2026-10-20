@@ -125,3 +125,9 @@ button.ctrl-btn {
   display: inline-block;
   margin-right: 0.25rem;
 }
+
+button.ctrl-btn.private-toggle-btn.active {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}

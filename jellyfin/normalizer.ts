@@ -1,7 +1,7 @@
 import { appConfig } from '../shared/config';
 import type { NormalizedPlaybackEvent, RawJellyfinPayload } from './models';
 
-export const DEFAULT_EXCLUDED_LIBRARIES = ['Other Anime', 'Other Anime Movies'];
+export const DEFAULT_EXCLUDED_LIBRARIES: string[] = [];
 export const DEFAULT_ANIME_LIBRARIES = ['Anime', 'Anime Movies'];
 
 export const isExcludedLibrary = (
@@ -15,12 +15,28 @@ export const isExcludedLibrary = (
   return list.some((item) => normalized === item.toLowerCase().trim());
 };
 
+export const isPrivateAnimeLibrary = (
+  libraryName?: string | null,
+  privateList?: string[],
+): boolean => {
+  if (!libraryName) return false;
+  const list =
+    privateList ?? appConfig?.jellyfin?.private_anime_libraries ?? [];
+  const normalized = libraryName.toLowerCase().trim();
+  return list.some(
+    (item) =>
+      normalized === item.toLowerCase().trim() ||
+      normalized.includes(item.toLowerCase().trim()),
+  );
+};
+
 export const isAnimeLibrary = (
   libraryName?: string | null,
-  options?: { animeLibraries?: string[]; excludedLibraries?: string[] },
+  options?: { animeLibraries?: string[]; privateAnimeLibraries?: string[]; excludedLibraries?: string[] },
 ): boolean => {
   if (!libraryName) return false;
   if (isExcludedLibrary(libraryName, options?.excludedLibraries)) return false;
+  if (isPrivateAnimeLibrary(libraryName, options?.privateAnimeLibraries)) return true;
 
   const animeList = options?.animeLibraries ?? appConfig?.jellyfin?.anime_libraries;
 

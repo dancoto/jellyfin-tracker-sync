@@ -22,6 +22,8 @@ export class EpisodeRowComponent {
   seasonNum = input.required<string>();
   epNum = input.required<string>();
   epName = input.required<string>();
+  exists = input<boolean>(false);
+  isMovie = input<boolean>(false);
   official = input<OfficialEpisodeInfo | null | undefined>();
   override = input<RawEpisodeOverride | undefined>();
 
@@ -40,7 +42,7 @@ export class EpisodeRowComponent {
 
   rowClass = computed(() => {
     if (this.isAniListSkipped()) return 'skipped-anilist-row';
-    if (this.isMissingAniList()) return 'missing-anilist-row';
+    if (this.isMissingAniList() && (this.isMovie() || this.exists())) return 'missing-anilist-row';
     if (this.isOverridden()) return 'overridden-row';
     return '';
   });

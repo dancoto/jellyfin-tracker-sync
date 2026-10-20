@@ -128,6 +128,17 @@
 
       <button
         mat-stroked-button
+        class="ctrl-btn private-toggle-btn"
+        [class.active]="includePrivate()"
+        matTooltip="Include or exclude items from private anime libraries"
+        (click)="includePrivateChange.emit(!includePrivate())"
+      >
+        <mat-icon class="btn-icon">{{ includePrivate() ? 'lock_open' : 'lock' }}</mat-icon>
+        {{ includePrivate() ? 'Private Included' : 'Include Private' }}
+      </button>
+
+      <button
+        mat-stroked-button
         class="ctrl-btn"
         (click)="toggleExpandAll.emit()"
       >

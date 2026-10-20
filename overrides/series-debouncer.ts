@@ -180,6 +180,7 @@ export const flushSeriesSync = async (key: string): Promise<SeriesSyncSummary | 
   try {
     const summary = await activeSyncSeries(tvdbId || '', {
       jellyfinSeriesId,
+      libraryName: pending.libraryName,
       customCatalogPath: pending.customCatalogPath,
       customOverridesPath: pending.customOverridesPath,
     });

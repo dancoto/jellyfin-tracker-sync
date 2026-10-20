@@ -13,6 +13,7 @@ export interface RawEpisodeOverride {
 }
 
 export interface RawSeasonOverride {
+  name?: string;
   anilistId?: string | number | null;
   anilistEpisodeOffset?: number;
   episodes?: Record<string, RawEpisodeOverride>;
@@ -94,11 +95,12 @@ export class TvdbOverridesIndex {
     return index;
   }
 
-  public hasShow(tvdbId: string | undefined): boolean {
-    if (!tvdbId) {
+  public hasShow(tvdbIdOrKeys: string | string[] | undefined): boolean {
+    if (!tvdbIdOrKeys) {
       return false;
     }
-    return this.shows.has(String(tvdbId).trim());
+    const candidateKeys = Array.isArray(tvdbIdOrKeys) ? tvdbIdOrKeys : [tvdbIdOrKeys];
+    return candidateKeys.some((k) => k && this.shows.has(String(k).trim()));
   }
 
   public static ensureShowInOverrides(
@@ -200,15 +202,24 @@ export class TvdbOverridesIndex {
   }
 
   public getEpisodeOverride(
-    tvdbId: string | undefined,
+    tvdbIdOrKeys: string | string[] | undefined,
     seasonNumber: number,
     episodeNumber: number,
   ): TvdbResolvedOverride | null {
-    if (!tvdbId) {
+    if (!tvdbIdOrKeys) {
       return null;
     }
 
-    const show = this.shows.get(String(tvdbId).trim());
+    const candidateKeys = Array.isArray(tvdbIdOrKeys) ? tvdbIdOrKeys : [tvdbIdOrKeys];
+    let show: RawShowOverride | undefined;
+    for (const key of candidateKeys) {
+      if (!key) continue;
+      const found = this.shows.get(String(key).trim());
+      if (found) {
+        show = found;
+        break;
+      }
+    }
     if (!show || !show.seasons) {
       return null;
     }

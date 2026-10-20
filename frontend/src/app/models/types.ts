@@ -42,10 +42,14 @@ export interface CatalogEpisode {
   name?: string;
   jellyfinEpisodeId?: string;
   tvdbEpisodeId?: string;
+  locationType?: string;
+  path?: string;
+  exists?: boolean;
 }
 
 export interface CatalogSeason {
   seasonNumber: number;
+  name?: string;
   episodes: Record<string, CatalogEpisode>;
 }
 
@@ -54,6 +58,9 @@ export interface CatalogShow {
   title: string;
   tmdbId?: string;
   jellyfinSeriesId?: string;
+  isMovie?: boolean;
+  isPrivate?: boolean;
+  libraryName?: string;
   seasons: Record<string, CatalogSeason>;
 }
 
@@ -67,6 +74,7 @@ export interface RawEpisodeOverride {
 }
 
 export interface RawSeasonOverride {
+  name?: string;
   anilistId?: string | number | null;
   anilistEpisodeOffset?: number;
   episodes?: Record<string, RawEpisodeOverride>;
