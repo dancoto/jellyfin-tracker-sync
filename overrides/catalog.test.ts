@@ -14,12 +14,19 @@ import { appConfig } from '../shared/config';
 describe('Jellyfin Anime Catalog & Sparse Overrides Pruner', () => {
   let tempCatalogPath: string;
   let originalConfig: any;
+  let originalFetch: typeof globalThis.fetch;
   let fetchMock: any;
 
   beforeEach(() => {
     tempCatalogPath = `/tmp/test-catalog-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
     originalConfig = JSON.parse(JSON.stringify(appConfig));
-    appConfig.jellyfin = { url: 'http://jellyfin-mock:8096', token: 'mock-jf-token' };
+    originalFetch = globalThis.fetch;
+    appConfig.jellyfin = {
+      url: 'http://jellyfin-mock:8096',
+      token: 'mock-jf-token',
+      anime_libraries: ['Anime'],
+      private_anime_libraries: ['Other Anime', 'Other Anime Movies'],
+    };
 
     fetchMock = mock((urlInput: string | URL) => {
       const url = urlInput.toString();
@@ -111,6 +118,7 @@ describe('Jellyfin Anime Catalog & Sparse Overrides Pruner', () => {
                   ParentIndexNumber: 1,
                   IndexNumber: 1,
                   Name: 'New Ep 1 (Virtual Future)',
+                  SeasonName: 'The Exiled Virgin',
                   LocationType: 'Virtual',
                 },
               ],
@@ -143,6 +151,7 @@ describe('Jellyfin Anime Catalog & Sparse Overrides Pruner', () => {
   });
 
   afterEach(() => {
+    globalThis.fetch = originalFetch;
     appConfig.jellyfin = originalConfig.jellyfin;
     if (existsSync(tempCatalogPath)) {
       unlinkSync(tempCatalogPath);
@@ -251,16 +260,18 @@ describe('Jellyfin Anime Catalog & Sparse Overrides Pruner', () => {
       customCatalogPath: tempCatalogPath,
     });
 
-    expect(summary.librariesScanned).toEqual(['Anime']);
-    expect(summary.totalSeriesScanned).toBe(2);
-    expect(summary.totalEpisodesScanned).toBe(3);
-    expect(summary.totalMoviesScanned).toBe(1);
+    expect(summary.librariesScanned).toEqual(['Anime', 'Other Anime', 'Other Anime Movies']);
+    expect(summary.totalSeriesScanned).toBe(6);
+    expect(summary.totalEpisodesScanned).toBe(9);
+    expect(summary.totalMoviesScanned).toBe(3);
     expect(summary.catalogShowsCount).toBe(3); // 2 series + 1 movie
     expect(summary.catalogEpisodesCount).toBe(3); // 1 real special + 1 virtual regular episode + 1 movie
 
     const loaded = loadCatalog(tempCatalogPath);
     expect(loaded.shows['82310']).toBeDefined();
+    expect(loaded.shows['82310']?.isPrivate).toBe(true);
     expect(loaded.shows['82310']?.seasons?.['0']?.episodes?.['1']?.name).toBe('OVA 1');
+    expect(loaded.shows['82310']?.seasons?.['0']?.episodes?.['1']?.exists).toBe(true);
     // Virtual special was excluded!
     expect(loaded.shows['82310']?.seasons?.['0']?.episodes?.['2']).toBeUndefined();
     // Virtual regular episode was included!
@@ -268,7 +279,10 @@ describe('Jellyfin Anime Catalog & Sparse Overrides Pruner', () => {
     expect(loaded.shows['999111']?.seasons?.['1']?.episodes?.['1']?.name).toBe(
       'New Ep 1 (Virtual Future)',
     );
+    expect(loaded.shows['999111']?.seasons?.['1']?.name).toBe('The Exiled Virgin');
+    expect(loaded.shows['999111']?.seasons?.['1']?.episodes?.['1']?.exists).toBe(false);
     expect(loaded.shows['555666']).toBeDefined(); // Movie
+    expect(loaded.shows['555666']?.isMovie).toBe(true);
   });
 
   test('syncJellyfinSeries should sync a single series from Jellyfin without scanning other shows', async () => {

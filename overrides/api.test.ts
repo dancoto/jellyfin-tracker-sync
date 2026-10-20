@@ -55,19 +55,31 @@ describe('Overrides Web Endpoints', () => {
   });
 
   test('handleSyncCatalog and handleImportOverrides should handle sync request', async () => {
-    const req = new Request('http://localhost:3000/api/catalog/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    });
-    const res = await handleSyncCatalog(req);
-    // Might succeed or fail depending on Jellyfin connectivity in mock, but should return a valid JSON response
-    expect([200, 500]).toContain(res.status);
-    const data = (await res.json()) as any;
-    expect(data).toBeDefined();
+    const tempCatalogPath = `/tmp/test-api-sync-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
+    try {
+      const req = new Request('http://localhost:3000/api/catalog/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customCatalogPath: tempCatalogPath }),
+      });
+      const res = await handleSyncCatalog(req);
+      // Might succeed or fail depending on Jellyfin connectivity in mock, but should return a valid JSON response
+      expect([200, 500]).toContain(res.status);
+      const data = (await res.json()) as any;
+      expect(data).toBeDefined();
 
-    const legacyRes = await handleImportOverrides(req);
-    expect([200, 500]).toContain(legacyRes.status);
+      const legacyReq = new Request('http://localhost:3000/api/catalog/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customCatalogPath: tempCatalogPath }),
+      });
+      const legacyRes = await handleImportOverrides(legacyReq);
+      expect([200, 500]).toContain(legacyRes.status);
+    } finally {
+      if (existsSync(tempCatalogPath)) {
+        unlinkSync(tempCatalogPath);
+      }
+    }
   });
 
   test('handleRetireRedundantOverrides should retire matching overrides and return summary', async () => {
@@ -171,20 +183,27 @@ describe('Overrides Web Endpoints', () => {
   });
 
   test('handleSyncSeries should return 200 with summary and official mappings for valid series', async () => {
-    // 295897 is Bikini Warriors
-    const req = new Request('http://localhost:3000/api/catalog/sync-series', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tvdbId: '295897' }),
-    });
-    const res = await handleSyncSeries(req);
-    expect([200, 500]).toContain(res.status);
-    if (res.status === 200) {
-      const data = (await res.json()) as any;
-      expect(data.success).toBe(true);
-      expect(data.summary).toBeDefined();
-      expect(data.summary.tvdbId).toBe('295897');
-      expect(data.official).toBeDefined();
+    const tempCatalogPath = `/tmp/test-api-series-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
+    try {
+      // 295897 is Bikini Warriors
+      const req = new Request('http://localhost:3000/api/catalog/sync-series', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tvdbId: '295897', customCatalogPath: tempCatalogPath }),
+      });
+      const res = await handleSyncSeries(req);
+      expect([200, 500]).toContain(res.status);
+      if (res.status === 200) {
+        const data = (await res.json()) as any;
+        expect(data.success).toBe(true);
+        expect(data.summary).toBeDefined();
+        expect(data.summary.tvdbId).toBe('295897');
+        expect(data.official).toBeDefined();
+      }
+    } finally {
+      if (existsSync(tempCatalogPath)) {
+        unlinkSync(tempCatalogPath);
+      }
     }
   });
 });

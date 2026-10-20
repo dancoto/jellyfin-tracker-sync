@@ -6,11 +6,13 @@ import { appConfig } from '../shared/config';
 describe('Jellyfin Mappings Bulk Importer', () => {
   let tempOverridesPath: string;
   let originalConfig: any;
+  let originalFetch: typeof globalThis.fetch;
   let fetchMock: any;
 
   beforeEach(() => {
     tempOverridesPath = `/tmp/test-importer-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
     originalConfig = JSON.parse(JSON.stringify(appConfig));
+    originalFetch = globalThis.fetch;
     appConfig.jellyfin = { url: 'http://jellyfin-mock:8096', token: 'mock-jf-token' };
 
     // Initial manual overrides file with custom mappings
@@ -163,6 +165,7 @@ describe('Jellyfin Mappings Bulk Importer', () => {
   });
 
   afterEach(() => {
+    globalThis.fetch = originalFetch;
     appConfig.jellyfin = originalConfig.jellyfin;
     if (existsSync(tempOverridesPath)) {
       unlinkSync(tempOverridesPath);
@@ -171,6 +174,7 @@ describe('Jellyfin Mappings Bulk Importer', () => {
 
   test('should bulk import anime from Jellyfin while strictly preserving manual mappings', async () => {
     const summary = await importJellyfinAnimeMappings({
+      libraryNames: ['Anime'],
       customOverridesPath: tempOverridesPath,
     });
 

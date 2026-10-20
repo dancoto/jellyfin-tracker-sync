@@ -79,6 +79,35 @@ describe('AniList Scrobbler', () => {
     expect(body.variables.mediaId).toBe(16498);
     expect(body.variables.progress).toBe(5);
     expect(body.variables.status).toBe('CURRENT');
+    expect(body.variables.private).toBeUndefined();
+  });
+
+  test('mutateAniListMediaEntry should pass private: true when isPrivate is true', async () => {
+    fetchMock = mock(() => {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            data: {
+              SaveMediaListEntry: {
+                id: 102,
+                mediaId: 16498,
+                status: 'CURRENT',
+                progress: 1,
+              },
+            },
+          }),
+        ),
+      );
+    });
+    global.fetch = fetchMock as any;
+
+    const result = await mutateAniListMediaEntry(16498, 1, 'CURRENT', 'mock-token', true);
+    expect(result).not.toBeNull();
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.variables.private).toBe(true);
+    expect(body.query).toContain('$private: Boolean');
+    expect(body.query).toContain('private: $private');
   });
 
   test('scrobbleToAniList should advance progress and update status', async () => {

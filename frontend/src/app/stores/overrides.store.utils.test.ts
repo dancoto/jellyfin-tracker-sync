@@ -14,6 +14,7 @@ import {
   getOfficialEp,
   getOverrideEp,
   isEpisodeMissingAniList,
+  isEpisodeOnDisk,
   isEpisodeOverridden,
   isEpisodeSkipped,
   isEpMissingAniList,
@@ -93,6 +94,18 @@ describe('OverridesStore Utils', () => {
   };
 
   describe('Episode Predicates', () => {
+    it('isEpisodeOnDisk correctly identifies disk existence', () => {
+      expect(isEpisodeOnDisk({ episodeNumber: 1, exists: true })).toBe(true);
+      expect(isEpisodeOnDisk({ episodeNumber: 1, exists: false })).toBe(false);
+      expect(isEpisodeOnDisk({ episodeNumber: 1, locationType: 'Virtual' })).toBe(false);
+      expect(isEpisodeOnDisk({ episodeNumber: 1, locationType: 'FileSystem' })).toBe(true);
+      expect(isEpisodeOnDisk({ episodeNumber: 1, path: '/media/anime/ep1.mkv' })).toBe(true);
+      expect(isEpisodeOnDisk({ episodeNumber: 1, path: '' })).toBe(false);
+      // Unspecified defaults to true for backwards compatibility with test fixtures
+      expect(isEpisodeOnDisk({ episodeNumber: 1 })).toBe(true);
+      // Movies always considered on disk
+      expect(isEpisodeOnDisk({ episodeNumber: 1, exists: false }, { tvdbId: '1', title: 'Movie', seasons: {}, isMovie: true })).toBe(true);
+    });
     it('isEpisodeSkipped correctly identifies skip flag', () => {
       expect(isEpisodeSkipped({ skipAniList: true })).toBe(true);
       expect(isEpisodeSkipped({ skipAniList: false })).toBe(false);
@@ -156,6 +169,21 @@ describe('OverridesStore Utils', () => {
       expect(countMissingInShow(sampleOverrides, sampleOfficial, '67890', show2)).toBe(1);
       expect(countOverriddenInShow(sampleOverrides, sampleOfficial, '67890', show2)).toBe(0);
       expect(countSkippedInShow(sampleOverrides, '67890', show2)).toBe(0);
+
+      // Virtual missing episode not on disk should NOT count towards missing
+      const showWithVirtual: CatalogShow = {
+        tvdbId: '99999',
+        title: 'Virtual Anime',
+        seasons: {
+          '1': {
+            seasonNumber: 1,
+            episodes: {
+              '1': { episodeNumber: 1, name: 'Ep 1', exists: false }, // missing anilist but not on disk
+            },
+          },
+        },
+      };
+      expect(countMissingInShow({}, {}, '99999', showWithVirtual)).toBe(0);
     });
   });
 
@@ -177,6 +205,47 @@ describe('OverridesStore Utils', () => {
       expect(counts.complete).toBe(1); // 12345 has 0 missing
       expect(counts.overrides).toBe(1);
       expect(counts.skipped).toBe(1);
+    });
+
+    it('respects includePrivate flag in calculateStatsSummary, calculateFilterCounts, and filterAndSortShows', () => {
+      const catalogWithPrivate: Record<string, CatalogShow> = {
+        ...sampleCatalog,
+        'jf-private-1': {
+          tvdbId: 'jf-private-1',
+          title: 'Private Anime',
+          isPrivate: true,
+          seasons: {
+            '1': {
+              seasonNumber: 1,
+              episodes: {
+                '1': { episodeNumber: 1, name: 'Secret Ep' },
+              },
+            },
+          },
+        },
+      };
+
+      // By default (includePrivate = false): private show excluded
+      const statsExcluded = calculateStatsSummary(catalogWithPrivate, sampleOverrides, sampleOfficial, false);
+      expect(statsExcluded.totalShows).toBe(2);
+
+      const countsExcluded = calculateFilterCounts(catalogWithPrivate, sampleOverrides, sampleOfficial, false);
+      expect(countsExcluded.all).toBe(2);
+
+      const showsExcluded = filterAndSortShows(catalogWithPrivate, sampleOverrides, sampleOfficial, '', 'all', 'title-asc', false);
+      expect(showsExcluded.length).toBe(2);
+      expect(showsExcluded.some(([id]) => id === 'jf-private-1')).toBe(false);
+
+      // When includePrivate = true: private show included
+      const statsIncluded = calculateStatsSummary(catalogWithPrivate, sampleOverrides, sampleOfficial, true);
+      expect(statsIncluded.totalShows).toBe(3);
+
+      const countsIncluded = calculateFilterCounts(catalogWithPrivate, sampleOverrides, sampleOfficial, true);
+      expect(countsIncluded.all).toBe(3);
+
+      const showsIncluded = filterAndSortShows(catalogWithPrivate, sampleOverrides, sampleOfficial, '', 'all', 'title-asc', true);
+      expect(showsIncluded.length).toBe(3);
+      expect(showsIncluded.some(([id]) => id === 'jf-private-1')).toBe(true);
     });
   });
 

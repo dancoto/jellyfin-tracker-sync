@@ -29,6 +29,28 @@ td {
   white-space: nowrap;
 }
 
+.disk-col {
+  width: 45px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.badge-disk-exists {
+  color: #10b981;
+  font-weight: 700;
+  font-size: 0.95rem;
+  display: inline-block;
+  line-height: 1;
+}
+
+.badge-disk-missing {
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.95rem;
+  display: inline-block;
+  line-height: 1;
+}
+
 .ep-name {
   color: var(--text);
   max-width: 250px;
@@ -58,6 +80,7 @@ td {
   line-height: 24px;
   box-sizing: border-box;
   transition: background 0.15s;
+  white-space: nowrap;
 }
 
 .badge-official:hover {

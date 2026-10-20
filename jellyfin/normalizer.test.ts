@@ -1,18 +1,19 @@
 import { describe, expect, test } from 'bun:test';
-import { isAnimeLibrary, isExcludedLibrary, normalizeJellyfinWebhook } from './normalizer';
+import { isAnimeLibrary, isExcludedLibrary, isPrivateAnimeLibrary, normalizeJellyfinWebhook } from './normalizer';
 
 describe('Jellyfin Webhook Normalizer', () => {
-  test('isAnimeLibrary helper should identify anime libraries case-insensitively while excluding Other Anime', () => {
+  test('isAnimeLibrary helper should identify anime and private anime libraries case-insensitively', () => {
     expect(isAnimeLibrary('Anime')).toBe(true);
     expect(isAnimeLibrary('Anime Shows')).toBe(true);
     expect(isAnimeLibrary('ANIME MOVIES')).toBe(true);
     expect(isAnimeLibrary('my-anime-collection')).toBe(true);
 
-    // Other Anime and Other Anime Movies must be excluded
-    expect(isAnimeLibrary('Other Anime')).toBe(false);
-    expect(isAnimeLibrary('Other Anime Movies')).toBe(false);
-    expect(isAnimeLibrary('other anime')).toBe(false);
-    expect(isAnimeLibrary('OTHER ANIME MOVIES')).toBe(false);
+    // Matches private anime libraries
+    expect(isAnimeLibrary('Other Anime', { privateAnimeLibraries: ['Other Anime', 'Other Anime Movies'] })).toBe(true);
+    expect(isAnimeLibrary('Other Anime Movies', { privateAnimeLibraries: ['Other Anime', 'Other Anime Movies'] })).toBe(true);
+
+    // Respects explicit excludedLibraries option
+    expect(isAnimeLibrary('Other Anime', { excludedLibraries: ['Other Anime'] })).toBe(false);
 
     expect(isAnimeLibrary('TV Shows')).toBe(false);
     expect(isAnimeLibrary('Movies')).toBe(false);
@@ -21,15 +22,26 @@ describe('Jellyfin Webhook Normalizer', () => {
     expect(isAnimeLibrary(null)).toBe(false);
   });
 
-  test('isExcludedLibrary helper should identify excluded libraries case-insensitively', () => {
-    expect(isExcludedLibrary('Other Anime')).toBe(true);
-    expect(isExcludedLibrary('Other Anime Movies')).toBe(true);
-    expect(isExcludedLibrary('other anime')).toBe(true);
-    expect(isExcludedLibrary('OTHER ANIME MOVIES')).toBe(true);
+  test('isPrivateAnimeLibrary helper should identify private anime libraries case-insensitively', () => {
+    const privates = ['Other Anime', 'Other Anime Movies'];
+    expect(isPrivateAnimeLibrary('Other Anime', privates)).toBe(true);
+    expect(isPrivateAnimeLibrary('Other Anime Movies', privates)).toBe(true);
+    expect(isPrivateAnimeLibrary('other anime', privates)).toBe(true);
+    expect(isPrivateAnimeLibrary('OTHER ANIME MOVIES', privates)).toBe(true);
 
-    expect(isExcludedLibrary('Anime')).toBe(false);
-    expect(isExcludedLibrary('Anime Movies')).toBe(false);
-    expect(isExcludedLibrary('TV Shows')).toBe(false);
+    expect(isPrivateAnimeLibrary('Anime', privates)).toBe(false);
+    expect(isPrivateAnimeLibrary('TV Shows', privates)).toBe(false);
+    expect(isPrivateAnimeLibrary(undefined, privates)).toBe(false);
+    expect(isPrivateAnimeLibrary(null, privates)).toBe(false);
+  });
+
+  test('isExcludedLibrary helper should identify excluded libraries when configured', () => {
+    const excluded = ['Hidden Library', 'Adult Content'];
+    expect(isExcludedLibrary('Hidden Library', excluded)).toBe(true);
+    expect(isExcludedLibrary('hidden library', excluded)).toBe(true);
+
+    expect(isExcludedLibrary('Anime', excluded)).toBe(false);
+    expect(isExcludedLibrary('TV Shows', excluded)).toBe(false);
     expect(isExcludedLibrary(undefined)).toBe(false);
     expect(isExcludedLibrary(null)).toBe(false);
   });

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { AnimeResolver } from './resolver';
-import { TvdbOverridesIndex } from './tvdb-overrides';
+import { TvdbOverridesIndex, type RawTvdbOverrides } from './tvdb-overrides';
 
 describe('TVDB Overrides Index & Resolver Integration', () => {
   const sampleOverridesData = {
@@ -215,5 +215,37 @@ describe('TVDB Overrides Index & Resolver Integration', () => {
         unlinkSync(tempPath);
       }
     }
+  });
+
+  test('should support fallback candidate keys like tmdb- and jf- in hasShow and getEpisodeOverride', () => {
+    const rawOverrides: RawTvdbOverrides = {
+      'jf-series-xyz': {
+        title: 'Jellyfin Only Private Show',
+        seasons: {
+          '1': {
+            episodes: {
+              '1': {
+                anilistId: 998877,
+                anilistEpisode: 1,
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const index = TvdbOverridesIndex.parse(rawOverrides);
+    expect(index.hasShow('jf-series-xyz')).toBe(true);
+    expect(index.hasShow(['unknown-tvdb', 'tmdb-12345', 'jf-series-xyz'])).toBe(true);
+    expect(index.hasShow(['unknown-tvdb', 'tmdb-12345'])).toBe(false);
+
+    const override = index.getEpisodeOverride(
+      ['unknown-tvdb', 'tmdb-12345', 'jf-series-xyz'],
+      1,
+      1,
+    );
+    expect(override).not.toBeNull();
+    expect(override?.anilistId).toBe(998877);
+    expect(override?.anilistEpisode).toBe(1);
   });
 });

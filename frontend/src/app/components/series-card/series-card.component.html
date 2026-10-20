@@ -13,16 +13,35 @@
         }
       </div>
       <div class="series-badges">
-        <a
-          [href]="'https://thetvdb.com/dereferrer/series/' + tvdbId()"
-          target="_blank"
-          class="badge badge-tvdb"
-          matTooltip="View series on TheTVDB"
-          (click)="$event.stopPropagation()"
-        >
-          TVDB {{ tvdbId() }} ↗
-        </a>
-        @if (show().tmdbId) {
+        @if (show().isPrivate) {
+          <span class="badge badge-private" matTooltip="Private anime library item">
+            🔒 Private
+          </span>
+        }
+        @if (isTvdbNumeric()) {
+          <a
+            [href]="'https://thetvdb.com/dereferrer/series/' + tvdbId()"
+            target="_blank"
+            class="badge badge-tvdb"
+            matTooltip="View series on TheTVDB"
+            (click)="$event.stopPropagation()"
+          >
+            TVDB {{ tvdbId() }} ↗
+          </a>
+        } @else if (tvdbId().startsWith('tmdb-')) {
+          <span class="badge badge-tmdb">
+            TMDB {{ tvdbId().replace('tmdb-', '') }}
+          </span>
+        } @else if (tvdbId().startsWith('jf-')) {
+          <span class="badge badge-jf" matTooltip="Jellyfin Series ID">
+            JF {{ tvdbId().replace('jf-', '') }}
+          </span>
+        } @else {
+          <span class="badge badge-jf">
+            ID {{ tvdbId() }}
+          </span>
+        }
+        @if (show().tmdbId && isTvdbNumeric()) {
           <span class="badge badge-tmdb">
             TMDB {{ show().tmdbId }}
           </span>
@@ -109,6 +128,16 @@
           <div class="season-header">
             <div class="season-title-box">
               <span>{{ season.label }}</span>
+              @if (season.anilistUrl) {
+                <a
+                  [href]="season.anilistUrl"
+                  target="_blank"
+                  class="badge-anilist"
+                  matTooltip="Open on AniList"
+                >
+                  🌸 AniList ↗
+                </a>
+              }
               @if (season.isSeasonAllSkipped) {
                 <span class="badge badge-anilist-skipped">
                   🌸 Season Skipped (AniList)
@@ -130,7 +159,7 @@
           </div>
 
           <div class="batch-fill-bar">
-            <span class="batch-label">🌸 Batch Fill {{ season.label }}:</span>
+            <span class="batch-label">🌸 Batch Fill Season {{ season.seasonNum }}:</span>
             <input
               type="number"
               class="id-input"
@@ -167,7 +196,10 @@
           <table class="ep-table">
             <thead>
               <tr>
-                <th style="width: 55px;">Ep</th>
+                <th style="width: 50px;">Ep</th>
+                @if (!isMovie()) {
+                  <th style="width: 45px; text-align: center;">Disk</th>
+                }
                 <th style="min-width: 220px;">Title</th>
                 <th style="width: 190px;">Official AniList</th>
                 <th style="width: 270px;">Override AniList</th>
@@ -182,6 +214,8 @@
                   [seasonNum]="season.seasonNum"
                   [epNum]="ep[0]"
                   [epName]="ep[1].name || ('Episode ' + ep[0])"
+                  [exists]="ep[1].exists ?? (ep[1].locationType ? ep[1].locationType !== 'Virtual' : false)"
+                  [isMovie]="isMovie()"
                   [official]="getOfficialEp(season.seasonNum, ep[0])"
                   [override]="getOverrideEp(season.seasonNum, ep[0])"
                   (updateField)="updateEpisode.emit({ seasonNum: season.seasonNum, epNum: ep[0], field: $event.field, value: $event.value })"

@@ -5,7 +5,11 @@ import type {
   RawSeasonOverride,
   RawTvdbOverrides,
 } from '../anime/tvdb-overrides';
-import { isAnimeLibrary, isExcludedLibrary } from '../jellyfin/normalizer';
+import {
+  isAnimeLibrary,
+  isExcludedLibrary,
+  isPrivateAnimeLibrary,
+} from '../jellyfin/normalizer';
 import { appConfig } from '../shared/config';
 import { logger } from '../shared/logger';
 import { pruneOrphanedOverrides } from './prune';
@@ -15,10 +19,14 @@ export interface CatalogEpisode {
   name?: string;
   jellyfinEpisodeId?: string;
   tvdbEpisodeId?: string;
+  locationType?: string;
+  path?: string;
+  exists?: boolean;
 }
 
 export interface CatalogSeason {
   seasonNumber: number;
+  name?: string;
   episodes: Record<string, CatalogEpisode>;
 }
 
@@ -27,6 +35,9 @@ export interface CatalogShow {
   title: string;
   tmdbId?: string;
   jellyfinSeriesId?: string;
+  isMovie?: boolean;
+  isPrivate?: boolean;
+  libraryName?: string;
   seasons: Record<string, CatalogSeason>;
 }
 
@@ -218,27 +229,33 @@ export const syncJellyfinCatalog = async (
     const seriesItems = seriesData.Items || [];
     totalSeriesScanned += seriesItems.length;
 
+    const isPrivate = isPrivateAnimeLibrary(folder.Name);
     const seriesMap = new Map<string, { name: string; tvdbId?: string; tmdbId?: string }>();
     for (const s of seriesItems) {
       const p = s.ProviderIds || {};
       const tvdb = p.Tvdb || p.TVDB;
       const tmdb = p.Tmdb || p.TMDB;
-      seriesMap.set(s.Id, { name: s.Name, tvdbId: tvdb, tmdbId: tmdb });
+      const effectiveKey = tvdb
+        ? String(tvdb).trim()
+        : tmdb
+          ? `tmdb-${String(tmdb).trim()}`
+          : `jf-${String(s.Id).trim()}`;
 
-      if (tvdb) {
-        if (!shows[tvdb]) {
-          shows[tvdb] = {
-            tvdbId: tvdb,
-            title: s.Name,
-            tmdbId: tmdb,
-            jellyfinSeriesId: s.Id,
-            seasons: {},
-          };
-        }
+      seriesMap.set(s.Id, { name: s.Name, tvdbId: effectiveKey, tmdbId: tmdb });
+
+      if (!shows[effectiveKey]) {
+        shows[effectiveKey] = {
+          tvdbId: effectiveKey,
+          title: s.Name,
+          tmdbId: tmdb,
+          jellyfinSeriesId: s.Id,
+          isPrivate,
+          libraryName: folder.Name,
+          seasons: {},
+        };
       } else {
-        logger.warn(
-          `[Catalog] Series "${s.Name}" (ID ${s.Id}) missing TVDB ID in Jellyfin. Skipping.`,
-        );
+        if (isPrivate) shows[effectiveKey].isPrivate = true;
+        if (!shows[effectiveKey].libraryName) shows[effectiveKey].libraryName = folder.Name;
       }
     }
 
@@ -254,7 +271,7 @@ export const syncJellyfinCatalog = async (
       epUrl.searchParams.set('limit', String(epLimit));
       epUrl.searchParams.set(
         'fields',
-        'ProviderIds,SeriesId,SeriesName,IndexNumber,ParentIndexNumber,Name,LocationType,Path',
+        'ProviderIds,SeriesId,SeriesName,IndexNumber,ParentIndexNumber,Name,LocationType,Path,SeasonName',
       );
 
       const epRes = await fetch(epUrl.toString(), { headers });
@@ -277,7 +294,13 @@ export const syncJellyfinCatalog = async (
 
         const sInfo = seriesMap.get(ep.SeriesId);
         const epP = ep.ProviderIds || {};
-        const tvdbId = sInfo?.tvdbId || epP.Tvdb || epP.TVDB;
+        const tvdbId =
+          sInfo?.tvdbId ||
+          (epP.Tvdb || epP.TVDB
+            ? String(epP.Tvdb || epP.TVDB).trim()
+            : ep.SeriesId
+              ? `jf-${String(ep.SeriesId).trim()}`
+              : undefined);
         if (!tvdbId) continue;
 
         let show = shows[tvdbId];
@@ -287,9 +310,14 @@ export const syncJellyfinCatalog = async (
             title: sInfo?.name ?? ep.SeriesName ?? 'Unknown Series',
             tmdbId: sInfo?.tmdbId,
             jellyfinSeriesId: ep.SeriesId,
+            isPrivate,
+            libraryName: folder.Name,
             seasons: {},
           };
           shows[tvdbId] = show;
+        } else {
+          if (isPrivate) show.isPrivate = true;
+          if (!show.libraryName) show.libraryName = folder.Name;
         }
 
         const sKey = String(seasonNum);
@@ -299,17 +327,25 @@ export const syncJellyfinCatalog = async (
         if (!season) {
           season = {
             seasonNumber: seasonNum,
+            name: ep.SeasonName || undefined,
             episodes: {},
           };
           show.seasons[sKey] = season;
+        } else if (!season.name && ep.SeasonName) {
+          season.name = ep.SeasonName;
         }
 
         if (!season.episodes[eKey]) {
+          const isVirtual = ep.LocationType === 'Virtual' || (!ep.Path && !ep.Container);
+
           season.episodes[eKey] = {
             episodeNumber: episodeNum,
             name: ep.Name,
             jellyfinEpisodeId: ep.Id,
             tvdbEpisodeId: epP.Tvdb || epP.TVDB,
+            locationType: ep.LocationType,
+            path: ep.Path,
+            exists: !isVirtual,
           };
         }
       }
@@ -334,18 +370,30 @@ export const syncJellyfinCatalog = async (
       for (const movie of movies) {
         const p = movie.ProviderIds || {};
         const tvdbId = p.Tvdb || p.TVDB;
-        if (!tvdbId) continue;
+        const tmdbId = p.Tmdb || p.TMDB;
+        const effectiveKey = tvdbId
+          ? String(tvdbId).trim()
+          : tmdbId
+            ? `tmdb-${String(tmdbId).trim()}`
+            : `jf-${String(movie.Id).trim()}`;
 
-        let show = shows[tvdbId];
+        let show = shows[effectiveKey];
         if (!show) {
           show = {
-            tvdbId,
+            tvdbId: effectiveKey,
             title: movie.Name,
-            tmdbId: p.Tmdb || p.TMDB,
+            tmdbId: tmdbId,
             jellyfinSeriesId: movie.Id,
+            isMovie: true,
+            isPrivate,
+            libraryName: folder.Name,
             seasons: {},
           };
-          shows[tvdbId] = show;
+          shows[effectiveKey] = show;
+        } else {
+          show.isMovie = true;
+          if (isPrivate) show.isPrivate = true;
+          if (!show.libraryName) show.libraryName = folder.Name;
         }
 
         let season0 = show.seasons['0'];
@@ -429,6 +477,7 @@ export interface SeriesSyncOptions {
   customOverridesPath?: string;
   pruneDeletedOverrides?: boolean;
   jellyfinSeriesId?: string;
+  libraryName?: string;
 }
 
 export interface SeriesSyncSummary {
@@ -467,8 +516,11 @@ export const syncJellyfinSeries = (
 
   let item: any = null;
 
-  // 1. If we have jellyfinSeriesId (from options or catalog), fetch directly by ID
-  const targetSeriesId = options?.jellyfinSeriesId || existingShow?.jellyfinSeriesId;
+  // 1. If we have jellyfinSeriesId (from options or catalog or jf- key), fetch directly by ID
+  const targetSeriesId =
+    options?.jellyfinSeriesId ||
+    existingShow?.jellyfinSeriesId ||
+    (tvdbId?.startsWith('jf-') ? tvdbId.replace('jf-', '') : undefined);
   if (targetSeriesId) {
     try {
       const itemUrl = new URL(`${jellyfinConfig.url}/Items`);
@@ -556,10 +608,16 @@ export const syncJellyfinSeries = (
 
   // 4. Construct updated CatalogShow based on item type
   const p = item.ProviderIds || {};
-  const effectiveTvdbId = String(tvdbId || p.Tvdb || p.TVDB || '');
+  const rawTvdb = p.Tvdb || p.TVDB;
+  const rawTmdb = p.Tmdb || p.TMDB;
+  const effectiveTvdbId = String(
+    tvdbId ||
+      rawTvdb ||
+      (rawTmdb ? `tmdb-${rawTmdb}` : (item.Id ? `jf-${item.Id}` : ''))
+  );
   if (!effectiveTvdbId) {
     logger.warn(
-      `[Catalog] Item "${item.Name}" (ID: ${item.Id}) has no TVDB ID in Jellyfin. Skipping catalog sync.`,
+      `[Catalog] Item "${item.Name}" (ID: ${item.Id}) has no TVDB or fallback ID in Jellyfin. Skipping catalog sync.`,
     );
     return {
       tvdbId: '',
@@ -570,12 +628,18 @@ export const syncJellyfinSeries = (
     };
   }
 
+  const libraryName = options?.libraryName ?? existingShow?.libraryName;
+  const isPrivate = existingShow?.isPrivate ?? (libraryName ? isPrivateAnimeLibrary(libraryName) : false);
+
   const isMovie = item.Type?.toLowerCase() === 'movie';
   const show: CatalogShow = {
     tvdbId: effectiveTvdbId,
     title: item.Name,
     tmdbId: p.Tmdb || p.TMDB,
     jellyfinSeriesId: item.Id,
+    isMovie,
+    isPrivate,
+    libraryName,
     seasons: {},
   };
 
@@ -598,7 +662,7 @@ export const syncJellyfinSeries = (
     epUrl.searchParams.set('recursive', 'true');
     epUrl.searchParams.set(
       'fields',
-      'ProviderIds,SeriesId,SeriesName,IndexNumber,ParentIndexNumber,Name,LocationType,Path',
+      'ProviderIds,SeriesId,SeriesName,IndexNumber,ParentIndexNumber,Name,LocationType,Path,SeasonName',
     );
 
     const epRes = await fetch(epUrl.toString(), { headers });
@@ -625,16 +689,23 @@ export const syncJellyfinSeries = (
       if (!show.seasons[sKey]) {
         show.seasons[sKey] = {
           seasonNumber: seasonNum,
+          name: ep.SeasonName || undefined,
           episodes: {},
         };
+      } else if (!show.seasons[sKey].name && ep.SeasonName) {
+        show.seasons[sKey].name = ep.SeasonName;
       }
 
       const epP = ep.ProviderIds || {};
+
       show.seasons[sKey].episodes[eKey] = {
         episodeNumber: episodeNum,
         name: ep.Name,
         jellyfinEpisodeId: ep.Id,
         tvdbEpisodeId: epP.Tvdb || epP.TVDB,
+        locationType: ep.LocationType,
+        path: ep.Path,
+        exists: !isVirtual,
       };
     }
   }

@@ -110,6 +110,12 @@ export const buildSyncPayload = (
 
   for (const item of items) {
     if (item.kind === 'anime_episode') {
+      if (item.isSpecial || item.seasonNumber === 0) {
+        logger.debug(
+          `[Simkl Batcher] Skipping anime special "${item.seriesName ?? item.episodeName}" (S0E${item.episodeNumber}) - anime specials excluded from Simkl.`,
+        );
+        continue;
+      }
       if (item.anilistId) {
         const animeKey = `anilist:${item.anilistId}`;
         let animeEntry = animeMap.get(animeKey);

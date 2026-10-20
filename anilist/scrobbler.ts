@@ -6,6 +6,7 @@ export interface AniListScrobbleItem {
   episodeNumber: number;
   isMovie?: boolean;
   title?: string;
+  isPrivate?: boolean;
 }
 
 export interface AniListMediaDetails {
@@ -27,6 +28,7 @@ export interface AniListMutationResult {
   mediaId: number;
   status: string;
   progress: number;
+  private?: boolean;
 }
 
 const calculateRetryDelay = (response: Response, attempt: number): number => {
@@ -154,16 +156,21 @@ export const mutateAniListMediaEntry = async (
   progress: number,
   status: string | undefined,
   userToken: string,
+  isPrivate?: boolean,
   maxRetries = 3,
 ): Promise<AniListMutationResult | null> => {
   const variables: Record<string, any> = { mediaId, progress };
   if (status) {
     variables.status = status;
   }
+  if (isPrivate !== undefined) {
+    variables.private = isPrivate;
+  }
 
+  const hasPrivate = isPrivate !== undefined;
   const bodyStr = JSON.stringify({
-    query: `mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus) {
-      SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status) {
+    query: `mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus${hasPrivate ? ', $private: Boolean' : ''}) {
+      SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status${hasPrivate ? ', private: $private' : ''}) {
         id
         mediaId
         status
@@ -283,6 +290,7 @@ export const scrobbleToAniList = async (
     targetProgress,
     targetStatus,
     userToken,
+    item.isPrivate,
   );
 
   if (!result) {
@@ -367,12 +375,21 @@ export const flushAniListUserQueue = async (username: string): Promise<void> => 
   const itemsToFlush = queue.items.splice(0, queue.items.length);
   const userToken = queue.userToken;
 
-  // Deduplicate by mediaId: keep highest episodeNumber
+  // Deduplicate by mediaId: keep highest episodeNumber and preserve isPrivate flag
   const byMediaId = new Map<number, AniListScrobbleItem>();
   for (const item of itemsToFlush) {
     const existing = byMediaId.get(item.mediaId);
-    if (!existing || item.episodeNumber > existing.episodeNumber) {
-      byMediaId.set(item.mediaId, item);
+    if (!existing) {
+      byMediaId.set(item.mediaId, { ...item });
+    } else {
+      const highestEp = Math.max(existing.episodeNumber, item.episodeNumber);
+      const isPrivate = Boolean(existing.isPrivate || item.isPrivate);
+      byMediaId.set(item.mediaId, {
+        ...existing,
+        ...item,
+        episodeNumber: highestEp,
+        isPrivate,
+      });
     }
   }
 

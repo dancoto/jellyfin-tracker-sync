@@ -3,6 +3,7 @@ import { CatalogEpisode, CatalogShow, OfficialEpisodeInfo, RawEpisodeOverride, R
 import { EpisodeRowComponent } from '../episode-row/episode-row.component';
 import {
   isEpisodeMissingAniList,
+  isEpisodeOnDisk,
   isEpisodeOverridden,
   isEpisodeSkipped,
 } from '../../stores/overrides.store.utils';
@@ -21,6 +22,7 @@ export interface SeasonViewItem {
   seasonOverridden: number;
   seasonSkipped: number;
   isSeasonAllSkipped: boolean;
+  anilistUrl?: string;
 }
 
 @Component({
@@ -65,6 +67,11 @@ export class SeriesCardComponent {
   applyOfficialSeason = output<{ seasonNum: string }>();
   skipUnmappedSeason = output<{ seasonNum: string }>();
 
+  isTvdbNumeric = computed(() => {
+    const id = this.tvdbId();
+    return Boolean(id && /^\d+$/.test(id.trim()));
+  });
+
   batchInputs = signal<Record<string, string>>({});
 
   onExpandedChange(expanded: boolean) {
@@ -99,6 +106,23 @@ export class SeriesCardComponent {
     );
   }
 
+  isMovie = computed(() => {
+    if (this.show().isMovie !== undefined) {
+      return Boolean(this.show().isMovie);
+    }
+    const seasons = Object.keys(this.show().seasons || {});
+    if (seasons.length === 1 && seasons[0] === '0') {
+      const eps = Object.keys(this.show().seasons['0']?.episodes || {});
+      if (eps.length === 1 && eps[0] === '1') {
+        const epName = this.show().seasons['0']?.episodes['1']?.name;
+        if (epName === 'Movie' || epName === this.show().title) {
+          return true;
+        }
+      }
+    }
+    return false;
+  });
+
   showStats = computed(() => {
     let missing = 0;
     let overridden = 0;
@@ -106,15 +130,17 @@ export class SeriesCardComponent {
     let total = 0;
 
     const s = this.show();
-    for (const [sKey, season] of Object.entries(s.seasons || {})) {
-      for (const [eKey] of Object.entries(season.episodes || {})) {
+    for (const [, season] of Object.entries(s.seasons || {})) {
+      for (const [eKey, ep] of Object.entries(season.episodes || {})) {
         total++;
-        if (this.isEpSkipped(sKey, eKey)) {
+        if (this.isEpSkipped(String(season.seasonNumber), eKey)) {
           skipped++;
-        } else if (this.isEpMissingAniList(sKey, eKey)) {
-          missing++;
+        } else if (this.isEpMissingAniList(String(season.seasonNumber), eKey)) {
+          if (isEpisodeOnDisk(ep, s)) {
+            missing++;
+          }
         }
-        if (this.isEpOverridden(sKey, eKey)) {
+        if (this.isEpOverridden(String(season.seasonNumber), eKey)) {
           overridden++;
         }
       }
@@ -136,11 +162,13 @@ export class SeriesCardComponent {
         let seasonOverridden = 0;
         let seasonSkipped = 0;
 
-        for (const [epNum] of episodes) {
+        for (const [epNum, epObj] of episodes) {
           if (this.isEpSkipped(seasonNum, epNum)) {
             seasonSkipped++;
           } else if (this.isEpMissingAniList(seasonNum, epNum)) {
-            seasonMissing++;
+            if (isEpisodeOnDisk(epObj, s)) {
+              seasonMissing++;
+            }
           }
           if (this.isEpOverridden(seasonNum, epNum)) {
             seasonOverridden++;
@@ -148,7 +176,42 @@ export class SeriesCardComponent {
         }
 
         const isSeasonAllSkipped = seasonSkipped === episodes.length && episodes.length > 0;
-        const label = seasonNum === '0' ? 'Specials (Season 0)' : `Season ${seasonNum}`;
+
+        const seasonName = season.name?.trim();
+        let label: string;
+        if (seasonNum === '0') {
+          label = 'Specials (Season 0)';
+        } else if (seasonName && !/^season\s*\d+$/i.test(seasonName)) {
+          label = seasonName.toLowerCase().startsWith(`season ${seasonNum}`.toLowerCase())
+            ? seasonName
+            : `Season ${seasonNum}: ${seasonName}`;
+        } else {
+          label = `Season ${seasonNum}`;
+        }
+
+        // Find primary AniList ID for the season to build header links
+        let primaryAnilistId: number | null = null;
+        for (const [epNum] of episodes) {
+          const ovr = this.getOverrideEp(seasonNum, epNum);
+          const off = this.getOfficialEp(seasonNum, epNum);
+          if (ovr && typeof ovr.anilistId === 'number') {
+            primaryAnilistId = ovr.anilistId;
+            break;
+          }
+          if (ovr?.anilistId === null) {
+            continue;
+          }
+          if (off?.anilistId) {
+            primaryAnilistId = off.anilistId;
+            break;
+          }
+        }
+
+        let anilistUrl: string | undefined;
+
+        if (primaryAnilistId) {
+          anilistUrl = `https://anilist.co/anime/${primaryAnilistId}`;
+        }
 
         return {
           seasonNum,
@@ -158,6 +221,7 @@ export class SeriesCardComponent {
           seasonOverridden,
           seasonSkipped,
           isSeasonAllSkipped,
+          anilistUrl,
         };
       });
   });

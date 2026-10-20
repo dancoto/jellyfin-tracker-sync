@@ -48,7 +48,7 @@ export const getOrDownloadFile = async (
     try {
       const stats = statSync(filePath);
       const ageMs = Date.now() - stats.mtimeMs;
-      if (ageMs < maxAgeMs && stats.size > 0) {
+      if (ageMs < maxAgeMs && stats.size > 1024) {
         return filePath;
       }
     } catch {
@@ -75,6 +75,19 @@ export const getOrDownloadFile = async (
     }
 
     const content = await response.text();
+    if (content.length < 1024) {
+      console.warn(
+        `Downloaded content from ${url} is suspiciously small (${content.length} bytes), ignoring.`,
+      );
+      if (fileExists) {
+        try {
+          if (statSync(filePath).size > 1024) {
+            return filePath;
+          }
+        } catch {}
+      }
+      return null;
+    }
     await Bun.write(filePath, content);
     console.log(`Successfully cached ${filename} to ${filePath}`);
     return filePath;

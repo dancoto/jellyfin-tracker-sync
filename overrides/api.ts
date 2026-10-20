@@ -63,12 +63,14 @@ export const handleGetOverrides = async (): Promise<Response> => {
         const sNum = parseInt(sKey, 10);
         catalogShows[tvdbId].seasons[sKey] = {
           seasonNumber: sNum,
+          name: sea.name,
           episodes: {},
         };
         for (const [eKey, ep] of Object.entries(sea.episodes || {})) {
           catalogShows[tvdbId].seasons[sKey].episodes[eKey] = {
             episodeNumber: parseInt(eKey, 10),
             name: ep.name,
+            exists: false,
           };
         }
       }

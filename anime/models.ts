@@ -54,6 +54,7 @@ export interface SeriesLookupQuery {
   tvdbId?: string;
   tmdbId?: string;
   anilistId?: string;
+  jellyfinSeriesId?: string;
 }
 
 export interface MovieLookupQuery {
@@ -61,4 +62,5 @@ export interface MovieLookupQuery {
   imdbId?: string;
   tvdbId?: string;
   anilistId?: string;
+  jellyfinSeriesId?: string;
 }

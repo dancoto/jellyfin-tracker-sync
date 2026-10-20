@@ -147,8 +147,8 @@ export class AnimeResolver {
     this.tvdbOverridesPath = path;
   }
 
-  public hasTvdbShow(tvdbId: string | undefined): boolean {
-    return this.tvdbOverrides?.hasShow(tvdbId) ?? false;
+  public hasTvdbShow(tvdbIdOrKeys: string | string[] | undefined): boolean {
+    return this.tvdbOverrides?.hasShow(tvdbIdOrKeys) ?? false;
   }
 
   public ensureShowInOverrides(
@@ -173,8 +173,14 @@ export class AnimeResolver {
     }
 
     // 0. Check TVDB-driven manual overrides first
-    const tvdbOverride = this.tvdbOverrides?.getEpisodeOverride(
+    const candidateKeys = [
       series.tvdbId,
+      series.tmdbId ? `tmdb-${series.tmdbId}` : undefined,
+      series.jellyfinSeriesId ? `jf-${series.jellyfinSeriesId}` : undefined,
+    ].filter((k): k is string => Boolean(k));
+
+    const tvdbOverride = this.tvdbOverrides?.getEpisodeOverride(
+      candidateKeys,
       seasonNumber,
       episodeNumber,
     );
@@ -314,8 +320,14 @@ export class AnimeResolver {
     }
 
     // 1. TVDB / JSON overrides (mapping-overrides.json)
-    if (this.tvdbOverrides && movie.tvdbId) {
-      const tvdbOverride = this.tvdbOverrides.getEpisodeOverride(movie.tvdbId, 0, 1);
+    const candidateKeys = [
+      movie.tvdbId,
+      movie.tmdbId ? `tmdb-${movie.tmdbId}` : undefined,
+      movie.jellyfinSeriesId ? `jf-${movie.jellyfinSeriesId}` : undefined,
+    ].filter((k): k is string => Boolean(k));
+
+    if (this.tvdbOverrides && candidateKeys.length > 0) {
+      const tvdbOverride = this.tvdbOverrides.getEpisodeOverride(candidateKeys, 0, 1);
       if (tvdbOverride) {
         if (tvdbOverride.skip || tvdbOverride.skipAniList) {
           return {

@@ -1,4 +1,5 @@
 import {
+  CatalogEpisode,
   CatalogShow,
   OfficialEpisodeInfo,
   OfficialMappingsMap,
@@ -6,6 +7,19 @@ import {
   RawEpisodeOverride,
   RawTvdbOverrides,
 } from '../models/types';
+
+/**
+ * Check whether a catalog episode exists on disk (physical media vs virtual placeholder).
+ * Movies are always considered to exist on disk as they represent imported library media.
+ */
+export function isEpisodeOnDisk(ep?: CatalogEpisode, show?: CatalogShow): boolean {
+  if (show?.isMovie) return true;
+  if (!ep) return false;
+  if (ep.exists !== undefined) return ep.exists;
+  if (ep.locationType !== undefined) return ep.locationType !== 'Virtual';
+  if (ep.path !== undefined) return Boolean(ep.path);
+  return true;
+}
 
 /**
  * Look up the official episode mapping for a given series, season, and episode.
@@ -110,7 +124,7 @@ export function isEpOverridden(
 }
 
 /**
- * Count missing AniList mappings in a given show.
+ * Count missing AniList mappings in a given show for episodes that exist on disk.
  */
 export function countMissingInShow(
   overridesData: RawTvdbOverrides,
@@ -120,8 +134,10 @@ export function countMissingInShow(
 ): number {
   let count = 0;
   for (const [seasonNum, season] of Object.entries(show.seasons || {})) {
-    for (const [epNum] of Object.entries(season.episodes || {})) {
-      if (isEpMissingAniList(overridesData, officialData, tvdbId, seasonNum, epNum)) count++;
+    for (const [epNum, ep] of Object.entries(season.episodes || {})) {
+      if (isEpisodeOnDisk(ep, show) && isEpMissingAniList(overridesData, officialData, tvdbId, seasonNum, epNum)) {
+        count++;
+      }
     }
   }
   return count;
@@ -168,7 +184,8 @@ export function countSkippedInShow(
 export function calculateStatsSummary(
   catalog: Record<string, CatalogShow>,
   overrides: RawTvdbOverrides,
-  official: OfficialMappingsMap
+  official: OfficialMappingsMap,
+  includePrivate: boolean = false
 ): OverridesSummary {
   let totalShows = 0;
   let totalEpisodes = 0;
@@ -178,16 +195,20 @@ export function calculateStatsSummary(
   let mappedEpisodes = 0;
 
   for (const [tvdbId, show] of Object.entries(catalog)) {
+    if (!includePrivate && show.isPrivate) continue;
     totalShows++;
     let showHasOverride = false;
 
     for (const [sKey, season] of Object.entries(show.seasons || {})) {
-      for (const [eKey] of Object.entries(season.episodes || {})) {
+      for (const [eKey, ep] of Object.entries(season.episodes || {})) {
         totalEpisodes++;
+        const onDisk = isEpisodeOnDisk(ep, show);
         if (isEpSkipped(overrides, tvdbId, sKey, eKey)) {
           skippedEpisodes++;
         } else if (isEpMissingAniList(overrides, official, tvdbId, sKey, eKey)) {
-          unmappedEpisodes++;
+          if (onDisk) {
+            unmappedEpisodes++;
+          }
         } else {
           mappedEpisodes++;
         }
@@ -217,7 +238,8 @@ export function calculateStatsSummary(
 export function calculateFilterCounts(
   catalog: Record<string, CatalogShow>,
   overrides: RawTvdbOverrides,
-  official: OfficialMappingsMap
+  official: OfficialMappingsMap,
+  includePrivate: boolean = false
 ): { all: number; unmapped: number; overrides: number; skipped: number; complete: number } {
   let all = 0;
   let unmapped = 0;
@@ -226,17 +248,18 @@ export function calculateFilterCounts(
   let complete = 0;
 
   for (const [id, show] of Object.entries(catalog)) {
+    if (!includePrivate && show.isPrivate) continue;
     all++;
     let hasMissing = false;
     let hasOverridden = false;
     let hasSkipped = false;
 
     for (const [seasonNum, season] of Object.entries(show.seasons || {})) {
-      for (const [epNum] of Object.entries(season.episodes || {})) {
+      for (const [epNum, ep] of Object.entries(season.episodes || {})) {
         if (!hasSkipped && isEpSkipped(overrides, id, seasonNum, epNum)) {
           hasSkipped = true;
         }
-        if (!hasMissing && isEpMissingAniList(overrides, official, id, seasonNum, epNum)) {
+        if (!hasMissing && isEpisodeOnDisk(ep, show) && isEpMissingAniList(overrides, official, id, seasonNum, epNum)) {
           hasMissing = true;
         }
         if (!hasOverridden && isEpOverridden(overrides, official, id, seasonNum, epNum)) {
@@ -265,12 +288,15 @@ export function filterAndSortShows(
   official: OfficialMappingsMap,
   searchQuery: string,
   filter: string,
-  sort: string
+  sort: string,
+  includePrivate: boolean = false
 ): [string, CatalogShow][] {
   const entries = Object.entries(catalog);
   const q = searchQuery.trim().toLowerCase();
 
   const filtered = entries.filter(([tvdbId, show]) => {
+    if (!includePrivate && show.isPrivate) return false;
+
     const titleMatch =
       !q ||
       (show.title || '').toLowerCase().includes(q) ||

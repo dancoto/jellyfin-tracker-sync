@@ -41,6 +41,7 @@ export interface OverridesState {
   searchQuery: string;
   currentPage: number;
   pageSize: number;
+  includePrivate: boolean;
   isLoading: boolean;
   isSyncingLibrary: boolean;
   isRetiring: boolean;
@@ -68,6 +69,7 @@ const initialOverridesState: OverridesState = {
   searchQuery: '',
   currentPage: 1,
   pageSize: 50,
+  includePrivate: false,
   isLoading: true,
   isSyncingLibrary: false,
   isRetiring: false,
@@ -90,11 +92,21 @@ export const OverridesStore = signalStore(
     const syncingSeriesSet = computed(() => new Set(store.syncingSeriesIds()));
 
     const statsSummary = computed<OverridesSummary>(() =>
-      calculateStatsSummary(store.catalogData(), store.overridesData(), store.officialData())
+      calculateStatsSummary(
+        store.catalogData(),
+        store.overridesData(),
+        store.officialData(),
+        store.includePrivate()
+      )
     );
 
     const filterCounts = computed(() =>
-      calculateFilterCounts(store.catalogData(), store.savedOverridesData(), store.officialData())
+      calculateFilterCounts(
+        store.catalogData(),
+        store.savedOverridesData(),
+        store.officialData(),
+        store.includePrivate()
+      )
     );
 
     const filteredShows = computed<[string, CatalogShow][]>(() =>
@@ -104,7 +116,8 @@ export const OverridesStore = signalStore(
         store.officialData(),
         store.searchQuery(),
         store.currentFilter(),
-        store.currentSort()
+        store.currentSort(),
+        store.includePrivate()
       )
     );
 
@@ -517,6 +530,8 @@ export const OverridesStore = signalStore(
       setFilter,
       setSort: (currentSort: string) =>
         patchState(store, { currentSort, currentPage: 1 }),
+      setIncludePrivate: (includePrivate: boolean) =>
+        patchState(store, { includePrivate, currentPage: 1 }),
       setPage: (currentPage: number) => patchState(store, { currentPage }),
       setPageSize: (pageSize: number) =>
         patchState(store, { pageSize, currentPage: 1 }),
