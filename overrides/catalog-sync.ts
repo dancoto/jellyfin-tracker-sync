@@ -5,7 +5,12 @@ import {
 } from '../jellyfin/normalizer';
 import { appConfig } from '../shared/config';
 import { logger } from '../shared/logger';
-import { loadCatalog, saveCatalog } from './catalog-store';
+import {
+  deleteSingleShowFromDb,
+  getSingleShowFromDb,
+  saveCatalog,
+  saveSingleShowToDb,
+} from './catalog-store';
 import type {
   AnimeCatalog,
   CatalogData,
@@ -340,8 +345,7 @@ export const syncJellyfinSeries = (
       Accept: 'application/json',
     };
 
-    const catalogData = loadCatalog(options?.customCatalogPath);
-    const existingShow = tvdbId ? catalogData.shows[tvdbId] : undefined;
+    const existingShow = tvdbId ? getSingleShowFromDb(tvdbId, options?.customCatalogPath) : null;
 
     let item: any = null;
 
@@ -410,16 +414,13 @@ export const syncJellyfinSeries = (
         `[Catalog] Series TVDB ${tvdbId || targetSeriesId} was not found in Jellyfin.`,
       );
 
-      if (tvdbId && catalogData.shows[tvdbId]) {
-        delete catalogData.shows[tvdbId];
-        catalogData.lastUpdated = new Date().toISOString();
-        saveCatalog(catalogData, options?.customCatalogPath);
+      if (tvdbId) {
+        deleteSingleShowFromDb(tvdbId, options?.customCatalogPath);
       }
 
       let prunedOverridesCount = 0;
       if (options?.pruneDeletedOverrides !== false) {
         const pruneRes = pruneOrphanedOverrides({
-          catalog: catalogData,
           customCatalogPath: options?.customCatalogPath,
           customOverridesPath: options?.customOverridesPath,
         });
@@ -546,19 +547,15 @@ export const syncJellyfinSeries = (
     }
 
     if (totalEpisodes === 0) {
-      delete catalogData.shows[effectiveTvdbId];
+      deleteSingleShowFromDb(effectiveTvdbId, options?.customCatalogPath);
     } else {
-      catalogData.shows[effectiveTvdbId] = show;
+      saveSingleShowToDb(show, options?.customCatalogPath);
     }
-
-    catalogData.lastUpdated = new Date().toISOString();
-    saveCatalog(catalogData, options?.customCatalogPath);
 
     // 5. Prune overrides if files were removed/renumbered
     let prunedOverridesCount = 0;
     if (options?.pruneDeletedOverrides !== false) {
       const pruneRes = pruneOrphanedOverrides({
-        catalog: catalogData,
         customCatalogPath: options?.customCatalogPath,
         customOverridesPath: options?.customOverridesPath,
       });

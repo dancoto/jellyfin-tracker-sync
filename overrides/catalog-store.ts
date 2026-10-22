@@ -1,14 +1,36 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type {
   RawEpisodeOverride,
   RawSeasonOverride,
   RawTvdbOverrides,
 } from '../anime/tvdb-overrides';
-import { logger } from '../shared/logger';
+import {
+  CATALOG_DB_FILE_NAME,
+  CATALOG_JSON_FILE_NAME,
+  closeCatalogDb,
+  deleteSingleShowFromDb,
+  getCatalogDb,
+  getCatalogDbPath,
+  getSingleShowFromDb,
+  loadCatalogFromDb,
+  saveCatalogToDb,
+  saveSingleShowToDb,
+} from './catalog-db';
 import type { CatalogData } from './catalog-types';
 
-export const CATALOG_FILE_NAME = 'anime-catalog.json';
+export {
+  CATALOG_DB_FILE_NAME,
+  CATALOG_JSON_FILE_NAME,
+  closeCatalogDb,
+  deleteSingleShowFromDb,
+  getCatalogDb,
+  getCatalogDbPath,
+  getSingleShowFromDb,
+  saveSingleShowToDb,
+};
+
+export const CATALOG_FILE_NAME = CATALOG_JSON_FILE_NAME;
 
 export const getCatalogFilePath = (customPath?: string): string => {
   if (customPath) {
@@ -33,40 +55,30 @@ export const getCatalogFilePath = (customPath?: string): string => {
 };
 
 /**
- * Loads the Jellyfin anime catalog cache from disk.
- * If the file does not exist or is invalid, returns an empty catalog structure.
+ * Loads the Jellyfin anime catalog from SQLite database (with automatic JSON migration if first run).
  */
 export const loadCatalog = (customPath?: string): CatalogData => {
-  const filePath = getCatalogFilePath(customPath);
-  if (!existsSync(filePath)) {
-    return { lastUpdated: '', shows: {} };
-  }
-
-  try {
-    const raw = readFileSync(filePath, 'utf-8');
-    const parsed = JSON.parse(raw) as CatalogData;
-    if (parsed && typeof parsed.shows === 'object') {
-      return parsed;
-    }
-    return { lastUpdated: '', shows: {} };
-  } catch (err) {
-    logger.error(`[Catalog] Failed reading catalog at ${filePath}:`, err);
-    return { lastUpdated: '', shows: {} };
-  }
+  return loadCatalogFromDb(customPath);
 };
 
 /**
- * Saves catalog data to disk.
+ * Saves catalog data to SQLite database (and updates JSON if explicitly targeting a .json path, e.g. in tests).
  */
 export const saveCatalog = (data: CatalogData, customPath?: string): void => {
-  const filePath = getCatalogFilePath(customPath);
-  const dir = dirname(filePath);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
+  saveCatalogToDb(data, customPath);
 
-  writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-  logger.info(`[Catalog] Saved ${Object.keys(data.shows).length} shows to ${filePath}`);
+  // If customPath is provided and ends with .json, also sync to file for unit test compatibility
+  if (customPath && customPath.endsWith('.json')) {
+    try {
+      const dir = dirname(customPath);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      writeFileSync(customPath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch {
+      // ignore
+    }
+  }
 };
 
 /**

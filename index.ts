@@ -21,6 +21,7 @@ import { startBackgroundJobs } from './server/scheduler';
 import { serveSpa, serveStaticOrSpaFallback } from './server/static';
 import { initLogger } from './shared/logger';
 import { flushAllAniListQueues } from './anilist/scrobbler';
+import { closeCatalogDb } from './overrides/catalog-store';
 import { flushAllPendingSeriesSync } from './overrides/series-debouncer';
 import { flushAllQueues } from './simkl/batcher';
 
@@ -109,6 +110,7 @@ const handleShutdown = async (signal: string) => {
     await flushAllQueues();
     await flushAllAniListQueues();
     await flushAllPendingSeriesSync();
+    closeCatalogDb();
   } catch (err) {
     console.error('Error flushing queues during shutdown:', err);
   }
