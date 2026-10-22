@@ -11,8 +11,8 @@ services:
     volumes:
       # Mount your configuration file (must be writable for token auto-refresh):
       - ./config.toml:/config/config.toml:rw
-      # Optional: Persist anime library catalog and custom mapping overrides in /config:
-      - ./data/anime-catalog.json:/config/anime-catalog.json:rw
+      # Optional: Persist anime library catalog database and custom mapping overrides in /config:
+      - ./data/anime-catalog.db:/config/anime-catalog.db:rw
       - ./mapping-overrides.json:/config/mapping-overrides.json:rw
       # Persist downloaded anime mapping caches (~11MB) across container restarts/updates:
       - mapping-cache:/config/cache:rw

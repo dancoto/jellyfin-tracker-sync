@@ -1,6 +1,16 @@
 [jellyfin]
 url = "http://jellyfin.local:8096"
 token = "YOUR_JELLYFIN_API_KEY"
+# Optional: Explicitly define anime libraries (defaults to any library containing "Anime")
+# anime_libraries = ["Anime", "Anime Movies"]
+# Optional: Private anime libraries (synced exclusively to AniList with private: true; never sent to Simkl)
+# private_anime_libraries = ["Other Anime", "Other Anime Movies"]
+# Optional: Exclude specific libraries completely from webhook processing
+# excluded_libraries = ["Home Videos", "Photos"]
+# Optional: Continuous sync debouncing when new items are added
+# [jellyfin.continuous_sync]
+# enabled = true
+# debounce_ms = 5000
 
 [simkl]
 app_name = "YourAppName"

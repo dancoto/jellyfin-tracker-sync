@@ -90,7 +90,7 @@ Usage: bun scripts/find-missing-anime.ts [options]
 Options:
   --library=<name>   Jellyfin library name to scan (default: "Anime" for audit, all anime libraries for catalog sync)
   --output=<file>    Destination JSON file path (default: "data/missing-anime.json")
-  --sync-catalog     Sync Jellyfin anime library into data/anime-catalog.json without modifying overrides
+  --sync-catalog     Sync Jellyfin anime library into data/anime-catalog.db without modifying overrides
   --template         Merge unresolved anime into mapping-overrides.json
   --import-all       Bulk import ALL anime from Jellyfin into mapping-overrides.json
   --help, -h         Show this help message
@@ -124,7 +124,7 @@ export const runAudit = async () => {
     console.log(`Episodes scanned:             ${summary.totalEpisodesScanned}`);
     console.log(`Catalog shows count:          ${summary.catalogShowsCount}`);
     console.log(`Catalog episodes count:       ${summary.catalogEpisodesCount}`);
-    console.log(`Catalog saved at:             data/anime-catalog.json`);
+    console.log(`Catalog saved at:             data/anime-catalog.db`);
     console.log('======================================================\n');
     return;
   }

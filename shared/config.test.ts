@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { defaultJellyfinClient } from '../jellyfin';
-import { appConfig, saveAniListUserToken, saveUserToken } from '../shared/config';
+import { appConfig, saveAniListUserToken, saveUserToken } from './config';
 
 describe('Web Auth Endpoints', () => {
   let originalConfig: any;
