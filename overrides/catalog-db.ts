@@ -22,22 +22,20 @@ export const getCatalogDbPath = (customPath?: string): string => {
     return resolved.endsWith('.db') ? resolved : `${resolved}.db`;
   }
 
-  const inConfigData = resolve('/config/data', CATALOG_DB_FILE_NAME);
-  if (existsSync(inConfigData)) {
-    return inConfigData;
+  if (existsSync('/config/data')) {
+    return resolve('/config/data', CATALOG_DB_FILE_NAME);
   }
   const inConfig = resolve('/config', CATALOG_DB_FILE_NAME);
   if (existsSync(inConfig)) {
     return inConfig;
   }
-  const inLocalData = resolve('data', CATALOG_DB_FILE_NAME);
-  if (existsSync(inLocalData)) {
-    return inLocalData;
+  if (existsSync('data')) {
+    return resolve('data', CATALOG_DB_FILE_NAME);
   }
   if (existsSync('/config/config.toml')) {
     return inConfig;
   }
-  return inLocalData;
+  return resolve('data', CATALOG_DB_FILE_NAME);
 };
 
 export const initCatalogDb = (db: Database): void => {
