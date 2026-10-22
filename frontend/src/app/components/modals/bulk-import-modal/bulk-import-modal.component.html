@@ -1,10 +1,16 @@
 @if (isOpen()) {
   <div class="modal-backdrop" (click)="handleClose()">
-    <div class="modal-dialog" (click)="$event.stopPropagation()">
+    <div
+      class="modal-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="bulkImportTitle"
+      (click)="$event.stopPropagation()"
+    >
       <div class="modal-header">
         <div class="modal-title-row">
           <mat-icon class="header-icon">sync</mat-icon>
-          <h3>Jellyfin Library Sync & Catalog Scan</h3>
+          <h3 id="bulkImportTitle">Jellyfin Library Sync & Catalog Scan</h3>
         </div>
         <button mat-icon-button (click)="handleClose()" aria-label="Close dialog">
           <mat-icon>close</mat-icon>

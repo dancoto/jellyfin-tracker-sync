@@ -1,11 +1,9 @@
 import { Routes } from '@angular/router';
-import { AuthComponent } from './views/auth/auth.component';
-import { OverridesComponent } from './views/overrides/overrides.component';
 
 export const routes: Routes = [
   {
     path: '',
-    component: AuthComponent,
+    loadComponent: () => import('./views/auth/auth.component').then((m) => m.AuthComponent),
     title: 'Authentication & Users - Jellyfin Tracker Sync',
   },
   {
@@ -15,7 +13,8 @@ export const routes: Routes = [
   },
   {
     path: 'overrides',
-    component: OverridesComponent,
+    loadComponent: () =>
+      import('./views/overrides/overrides.component').then((m) => m.OverridesComponent),
     title: 'Mapping Overrides - Jellyfin Tracker Sync',
   },
   {

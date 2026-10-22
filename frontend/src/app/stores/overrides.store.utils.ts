@@ -294,6 +294,26 @@ export function filterAndSortShows(
   const entries = Object.entries(catalog);
   const q = searchQuery.trim().toLowerCase();
 
+  const missingCountCache = new Map<string, number>();
+  const getMissingCount = (id: string, show: CatalogShow) => {
+    let count = missingCountCache.get(id);
+    if (count === undefined) {
+      count = countMissingInShow(overrides, official, id, show);
+      missingCountCache.set(id, count);
+    }
+    return count;
+  };
+
+  const overriddenCountCache = new Map<string, number>();
+  const getOverriddenCount = (id: string, show: CatalogShow) => {
+    let count = overriddenCountCache.get(id);
+    if (count === undefined) {
+      count = countOverriddenInShow(overrides, official, id, show);
+      overriddenCountCache.set(id, count);
+    }
+    return count;
+  };
+
   const filtered = entries.filter(([tvdbId, show]) => {
     if (!includePrivate && show.isPrivate) return false;
 
@@ -304,40 +324,32 @@ export function filterAndSortShows(
     if (!titleMatch) return false;
 
     if (filter === 'unmapped' || filter === 'missing-anilist') {
-      return countMissingInShow(overrides, official, tvdbId, show) > 0;
+      return getMissingCount(tvdbId, show) > 0;
     }
     if (filter === 'overrides' || filter === 'overridden') {
-      return countOverriddenInShow(overrides, official, tvdbId, show) > 0;
+      return getOverriddenCount(tvdbId, show) > 0;
     }
     if (filter === 'skipped' || filter === 'skipped-anilist') {
       return countSkippedInShow(overrides, tvdbId, show) > 0;
     }
     if (filter === 'mapped' || filter === 'complete') {
-      return countMissingInShow(overrides, official, tvdbId, show) === 0;
+      return getMissingCount(tvdbId, show) === 0;
     }
     return true;
   });
 
   if (sort === 'missing-desc' || sort === 'missing-asc') {
-    const missingMap = new Map<string, number>();
-    for (const [id, show] of filtered) {
-      missingMap.set(id, countMissingInShow(overrides, official, id, show));
-    }
     filtered.sort(([idA, showA], [idB, showB]) => {
-      const countA = missingMap.get(idA)!;
-      const countB = missingMap.get(idB)!;
+      const countA = getMissingCount(idA, showA);
+      const countB = getMissingCount(idB, showB);
       const diff = sort === 'missing-desc' ? countB - countA : countA - countB;
       if (diff !== 0) return diff;
       return (showA.title || '').localeCompare(showB.title || '');
     });
   } else if (sort === 'overridden-desc') {
-    const overriddenMap = new Map<string, number>();
-    for (const [id, show] of filtered) {
-      overriddenMap.set(id, countOverriddenInShow(overrides, official, id, show));
-    }
     filtered.sort(([idA, showA], [idB, showB]) => {
-      const countA = overriddenMap.get(idA)!;
-      const countB = overriddenMap.get(idB)!;
+      const countA = getOverriddenCount(idA, showA);
+      const countB = getOverriddenCount(idB, showB);
       const diff = countB - countA;
       if (diff !== 0) return diff;
       return (showA.title || '').localeCompare(showB.title || '');
@@ -376,7 +388,7 @@ export function ensureEpisodeInOverrides(
   seasonNum: string,
   epNum: string
 ): { overrides: RawTvdbOverrides; ep: RawEpisodeOverride } {
-  const overrides: RawTvdbOverrides = JSON.parse(JSON.stringify(overridesData));
+  const overrides: RawTvdbOverrides = structuredClone(overridesData);
   if (!overrides[tvdbId]) {
     const catShow = catalogData[tvdbId] || ({} as any);
     overrides[tvdbId] = {
@@ -512,7 +524,7 @@ export function clearEpisodeOverride(
   seasonNum: string,
   epNum: string
 ): RawTvdbOverrides {
-  const overrides: RawTvdbOverrides = JSON.parse(JSON.stringify(overridesData));
+  const overrides: RawTvdbOverrides = structuredClone(overridesData);
   const show = overrides[tvdbId];
   if (show?.seasons?.[seasonNum]?.episodes?.[epNum]) {
     delete show.seasons[seasonNum].episodes![epNum];
@@ -539,7 +551,7 @@ export function applyBatchSeasonOverride(
   const season = catalogData[tvdbId]?.seasons?.[seasonNum];
   if (!season || !season.episodes) return overridesData;
 
-  const overrides: RawTvdbOverrides = JSON.parse(JSON.stringify(overridesData));
+  const overrides: RawTvdbOverrides = structuredClone(overridesData);
   for (const [epNum] of Object.entries(season.episodes)) {
     if (!overrides[tvdbId]) {
       overrides[tvdbId] = { title: catalogData[tvdbId]?.title || '', seasons: {} };
@@ -574,7 +586,7 @@ export function applyOfficialSeasonOverride(
   if (!season || !season.episodes) return { overrides: overridesData, appliedCount: 0 };
 
   let appliedCount = 0;
-  const overrides: RawTvdbOverrides = JSON.parse(JSON.stringify(overridesData));
+  const overrides: RawTvdbOverrides = structuredClone(overridesData);
 
   for (const [epNum] of Object.entries(season.episodes)) {
     const off = getOfficialEp(officialData, tvdbId, seasonNum, epNum);
@@ -616,7 +628,7 @@ export function skipUnmappedSeasonOverride(
   if (!season || !season.episodes) return { overrides: overridesData, changedCount: 0 };
 
   let changedCount = 0;
-  const overrides: RawTvdbOverrides = JSON.parse(JSON.stringify(overridesData));
+  const overrides: RawTvdbOverrides = structuredClone(overridesData);
 
   for (const [epNum] of Object.entries(season.episodes)) {
     if (
@@ -696,7 +708,7 @@ export function revertShowOverride(
   const updated = { ...currentOverrides };
   const savedShow = savedOverrides[tvdbId];
   if (savedShow) {
-    updated[tvdbId] = JSON.parse(JSON.stringify(savedShow));
+    updated[tvdbId] = structuredClone(savedShow);
   } else {
     delete updated[tvdbId];
   }

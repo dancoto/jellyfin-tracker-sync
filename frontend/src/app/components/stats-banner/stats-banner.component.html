@@ -5,8 +5,14 @@
   <mat-card
     class="stat-card"
     appearance="outlined"
+    role="button"
+    tabindex="0"
     [class.active]="sel === 'all'"
+    [attr.aria-pressed]="sel === 'all'"
+    aria-label="Filter by all shows"
     (click)="selectFilter.emit('all')"
+    (keydown.enter)="selectFilter.emit('all')"
+    (keydown.space)="$event.preventDefault(); selectFilter.emit('all')"
   >
     <mat-card-content class="stat-content">
       <div class="stat-label">Total Anime Shows</div>
@@ -18,8 +24,14 @@
   <mat-card
     class="stat-card"
     appearance="outlined"
+    role="button"
+    tabindex="0"
     [class.active]="sel === 'unmapped'"
+    [attr.aria-pressed]="sel === 'unmapped'"
+    aria-label="Filter by missing AniList shows"
     (click)="selectFilter.emit('unmapped')"
+    (keydown.enter)="selectFilter.emit('unmapped')"
+    (keydown.space)="$event.preventDefault(); selectFilter.emit('unmapped')"
   >
     <mat-card-content class="stat-content">
       <div class="stat-label">Missing AniList</div>
@@ -31,8 +43,14 @@
   <mat-card
     class="stat-card"
     appearance="outlined"
+    role="button"
+    tabindex="0"
     [class.active]="sel === 'overrides'"
+    [attr.aria-pressed]="sel === 'overrides'"
+    aria-label="Filter by custom overrides"
     (click)="selectFilter.emit('overrides')"
+    (keydown.enter)="selectFilter.emit('overrides')"
+    (keydown.space)="$event.preventDefault(); selectFilter.emit('overrides')"
   >
     <mat-card-content class="stat-content">
       <div class="stat-label">Custom Overrides</div>
@@ -44,8 +62,14 @@
   <mat-card
     class="stat-card"
     appearance="outlined"
+    role="button"
+    tabindex="0"
     [class.active]="sel === 'skipped'"
+    [attr.aria-pressed]="sel === 'skipped'"
+    aria-label="Filter by AniList skipped shows"
     (click)="selectFilter.emit('skipped')"
+    (keydown.enter)="selectFilter.emit('skipped')"
+    (keydown.space)="$event.preventDefault(); selectFilter.emit('skipped')"
   >
     <mat-card-content class="stat-content">
       <div class="stat-label">AniList Skipped</div>
@@ -57,8 +81,14 @@
   <mat-card
     class="stat-card"
     appearance="outlined"
+    role="button"
+    tabindex="0"
     [class.active]="sel === 'mapped'"
+    [attr.aria-pressed]="sel === 'mapped'"
+    aria-label="Filter by completed AniList coverage shows"
     (click)="selectFilter.emit('mapped')"
+    (keydown.enter)="selectFilter.emit('mapped')"
+    (keydown.space)="$event.preventDefault(); selectFilter.emit('mapped')"
   >
     <mat-card-content class="stat-content">
       <div class="stat-label">AniList Coverage</div>

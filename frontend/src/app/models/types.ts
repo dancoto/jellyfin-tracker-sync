@@ -159,6 +159,12 @@ export interface SeriesSyncResult {
   prunedOverridesCount: number;
 }
 
+export interface SeriesSyncApiResponse {
+  success: boolean;
+  summary: SeriesSyncResult;
+  official?: Record<string, Record<string, OfficialEpisodeInfo | null>>;
+}
+
 export interface CatalogSyncResult {
   librariesScanned: string[];
   totalSeriesScanned: number;
@@ -169,6 +175,11 @@ export interface CatalogSyncResult {
   lastUpdated: string;
   prunedOverridesCount?: number;
   prunedShowsCount?: number;
+}
+
+export interface CatalogSyncApiResponse {
+  success: boolean;
+  summary: CatalogSyncResult;
 }
 
 export interface RetiredEpisodeItem {

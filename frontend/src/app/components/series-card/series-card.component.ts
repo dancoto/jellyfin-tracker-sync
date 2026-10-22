@@ -14,10 +14,18 @@ import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 
+export interface EpisodeViewItem {
+  epNum: string;
+  episode: CatalogEpisode;
+  exists: boolean;
+  official: OfficialEpisodeInfo | null;
+  override: RawEpisodeOverride | undefined;
+}
+
 export interface SeasonViewItem {
   seasonNum: string;
   label: string;
-  episodes: [string, CatalogEpisode][];
+  episodes: EpisodeViewItem[];
   seasonMissing: number;
   seasonOverridden: number;
   seasonSkipped: number;
@@ -154,26 +162,47 @@ export class SeriesCardComponent {
     return Object.entries(s.seasons || {})
       .sort(([a], [b]) => parseInt(a, 10) - parseInt(b, 10))
       .map(([seasonNum, season]) => {
-        const episodes = Object.entries(season.episodes || {}).sort(
+        const rawEpisodes = Object.entries(season.episodes || {}).sort(
           ([a], [b]) => parseInt(a, 10) - parseInt(b, 10),
         );
 
         let seasonMissing = 0;
         let seasonOverridden = 0;
         let seasonSkipped = 0;
+        let primaryAnilistId: number | null = null;
 
-        for (const [epNum, epObj] of episodes) {
-          if (this.isEpSkipped(seasonNum, epNum)) {
+        const episodes: EpisodeViewItem[] = rawEpisodes.map(([epNum, epObj]) => {
+          const exists = isEpisodeOnDisk(epObj, s);
+          const official = this.getOfficialEp(seasonNum, epNum);
+          const override = this.getOverrideEp(seasonNum, epNum);
+
+          if (isEpisodeSkipped(override)) {
             seasonSkipped++;
-          } else if (this.isEpMissingAniList(seasonNum, epNum)) {
-            if (isEpisodeOnDisk(epObj, s)) {
+          } else if (isEpisodeMissingAniList(override, official)) {
+            if (exists) {
               seasonMissing++;
             }
           }
-          if (this.isEpOverridden(seasonNum, epNum)) {
+          if (isEpisodeOverridden(override, official)) {
             seasonOverridden++;
           }
-        }
+
+          if (primaryAnilistId === null) {
+            if (override && typeof override.anilistId === 'number') {
+              primaryAnilistId = override.anilistId;
+            } else if (override?.anilistId !== null && official?.anilistId) {
+              primaryAnilistId = official.anilistId;
+            }
+          }
+
+          return {
+            epNum,
+            episode: epObj,
+            exists,
+            official,
+            override,
+          };
+        });
 
         const isSeasonAllSkipped = seasonSkipped === episodes.length && episodes.length > 0;
 
@@ -189,29 +218,9 @@ export class SeriesCardComponent {
           label = `Season ${seasonNum}`;
         }
 
-        // Find primary AniList ID for the season to build header links
-        let primaryAnilistId: number | null = null;
-        for (const [epNum] of episodes) {
-          const ovr = this.getOverrideEp(seasonNum, epNum);
-          const off = this.getOfficialEp(seasonNum, epNum);
-          if (ovr && typeof ovr.anilistId === 'number') {
-            primaryAnilistId = ovr.anilistId;
-            break;
-          }
-          if (ovr?.anilistId === null) {
-            continue;
-          }
-          if (off?.anilistId) {
-            primaryAnilistId = off.anilistId;
-            break;
-          }
-        }
-
-        let anilistUrl: string | undefined;
-
-        if (primaryAnilistId) {
-          anilistUrl = `https://anilist.co/anime/${primaryAnilistId}`;
-        }
+        const anilistUrl = primaryAnilistId
+          ? `https://anilist.co/anime/${primaryAnilistId}`
+          : undefined;
 
         return {
           seasonNum,

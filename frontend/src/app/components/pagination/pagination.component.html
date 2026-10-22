@@ -2,7 +2,7 @@
 @if (total > 0) {
   @let page = currentPage();
   @let maxPages = totalPages();
-  <div class="pagination-container">
+  <nav class="pagination-container" aria-label="Pagination">
     <div class="pagination-info">
       Showing <strong>{{ startItem() }} - {{ endItem() }}</strong> of <strong>{{ total }}</strong> shows
     </div>
@@ -12,7 +12,8 @@
         mat-icon-button
         class="p-icon-btn"
         [disabled]="page === 1"
-        title="First page"
+        aria-label="First page"
+        matTooltip="First page"
         (click)="goToPage(1)"
       >
         <mat-icon class="p-icon">first_page</mat-icon>
@@ -21,7 +22,8 @@
         mat-icon-button
         class="p-icon-btn"
         [disabled]="page === 1"
-        title="Previous page"
+        aria-label="Previous page"
+        matTooltip="Previous page"
         (click)="goToPage(page - 1)"
       >
         <mat-icon class="p-icon">chevron_left</mat-icon>
@@ -32,6 +34,8 @@
           mat-button
           class="p-num-btn"
           [class.active]="p === page"
+          [attr.aria-label]="'Page ' + p"
+          [attr.aria-current]="p === page ? 'page' : null"
           (click)="goToPage(p)"
         >
           {{ p }}
@@ -42,7 +46,8 @@
         mat-icon-button
         class="p-icon-btn"
         [disabled]="page === maxPages"
-        title="Next page"
+        aria-label="Next page"
+        matTooltip="Next page"
         (click)="goToPage(page + 1)"
       >
         <mat-icon class="p-icon">chevron_right</mat-icon>
@@ -51,7 +56,8 @@
         mat-icon-button
         class="p-icon-btn"
         [disabled]="page === maxPages"
-        title="Last page"
+        aria-label="Last page"
+        matTooltip="Last page"
         (click)="goToPage(maxPages)"
       >
         <mat-icon class="p-icon">last_page</mat-icon>
@@ -59,13 +65,19 @@
     </div>
 
     <div class="page-size-selector">
-      <span>Per page:</span>
-      <select [value]="pageSize()" class="size-select" (change)="handlePageSizeChange($event)">
+      <label for="pageSizeSelect">Per page:</label>
+      <select
+        id="pageSizeSelect"
+        [value]="pageSize()"
+        class="size-select"
+        aria-label="Shows per page"
+        (change)="handlePageSizeChange($event)"
+      >
         <option [value]="25">25</option>
         <option [value]="50">50</option>
         <option [value]="100">100</option>
         <option [value]="99999">All</option>
       </select>
     </div>
-  </div>
+  </nav>
 }

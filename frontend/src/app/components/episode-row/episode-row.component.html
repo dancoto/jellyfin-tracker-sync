@@ -32,6 +32,7 @@
       [class.null-val]="isIdNullVal()"
       [value]="anilistIdValue()"
       [placeholder]="idInputPlaceholder()"
+      aria-label="Override AniList Media ID"
       matTooltip="Override AniList Media ID (leave blank to use official mapping, or type null to unmap)"
       (change)="onIdChange($event)"
     />
@@ -39,6 +40,7 @@
       type="number"
       class="id-input ep-sub-input"
       [value]="anilistEpisodeValue()"
+      aria-label="AniList Episode Number"
       matTooltip="AniList Episode Number"
       (change)="onEpisodeChange($event)"
     />

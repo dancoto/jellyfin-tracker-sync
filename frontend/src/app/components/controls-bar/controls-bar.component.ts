@@ -1,4 +1,6 @@
-import { Component, input, output } from '@angular/core';
+import { Component, DestroyRef, inject, input, model, output } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { MatButton } from '@angular/material/button';
 import { MatFormField, MatLabel, MatPrefix } from '@angular/material/form-field';
 import { MatIcon } from '@angular/material/icon';
@@ -25,13 +27,16 @@ import { MatProgressSpinner } from '@angular/material/progress-spinner';
   styleUrl: './controls-bar.component.css',
 })
 export class ControlsBarComponent {
+  private destroyRef = inject(DestroyRef);
+  private searchSubject = new Subject<string>();
+
   search = input<string>('');
-  filter = input<string>('all');
-  sort = input<string>('missing-desc');
+  filter = model<string>('all');
+  sort = model<string>('missing-desc');
   allExpanded = input<boolean>(false);
   isSyncing = input<boolean>(false);
   isRetiring = input<boolean>(false);
-  includePrivate = input<boolean>(false);
+  includePrivate = model<boolean>(false);
   filterCounts = input<{
     all: number;
     unmapped: number;
@@ -41,16 +46,35 @@ export class ControlsBarComponent {
   }>();
 
   searchChange = output<string>();
-  filterChange = output<string>();
-  sortChange = output<string>();
-  includePrivateChange = output<boolean>();
   syncLibrary = output<void>();
   retireRedundant = output<void>();
   bulkImport = output<void>();
   toggleExpandAll = output<void>();
 
+  constructor() {
+    this.searchSubject
+      .pipe(
+        debounceTime(250),
+        distinctUntilChanged(),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((val) => this.searchChange.emit(val));
+  }
+
   onSearchInput(event: Event) {
     const val = (event.target as HTMLInputElement).value;
-    this.searchChange.emit(val);
+    this.searchSubject.next(val);
+  }
+
+  setFilter(f: string) {
+    this.filter.set(f);
+  }
+
+  setSort(s: string) {
+    this.sort.set(s);
+  }
+
+  togglePrivate() {
+    this.includePrivate.update((prev) => !prev);
   }
 }
