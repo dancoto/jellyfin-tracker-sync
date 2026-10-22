@@ -1,4 +1,4 @@
-import { Component, computed, input, output } from '@angular/core';
+import { Component, computed, input, model, output } from '@angular/core';
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 
@@ -9,12 +9,11 @@ import { MatIcon } from '@angular/material/icon';
   styleUrl: './pagination.component.css',
 })
 export class PaginationComponent {
-  currentPage = input<number>(1);
+  currentPage = model<number>(1);
   totalItems = input<number>(0);
-  pageSize = input<number>(50);
+  pageSize = model<number>(50);
 
   pageChange = output<number>();
-  pageSizeChange = output<number>();
 
   totalPages = computed(() => {
     if (this.pageSize() <= 0) return 1;
@@ -53,13 +52,15 @@ export class PaginationComponent {
 
   goToPage(page: number) {
     if (page >= 1 && page <= this.totalPages()) {
+      this.currentPage.set(page);
       this.pageChange.emit(page);
     }
   }
 
   handlePageSizeChange(e: Event) {
     const newSize = parseInt((e.target as HTMLSelectElement).value, 10);
-    this.pageSizeChange.emit(newSize);
+    this.pageSize.set(newSize);
+    this.currentPage.set(1);
     this.pageChange.emit(1);
   }
 }

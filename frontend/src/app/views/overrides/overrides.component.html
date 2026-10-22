@@ -26,15 +26,16 @@
     />
 
     <!-- Loading State -->
+    @let totalShows = store.filteredShows().length;
     @if (store.isLoading()) {
       <div class="loading-container">
         <mat-progress-spinner diameter="40" mode="indeterminate"></mat-progress-spinner>
         <p>Loading anime catalog and overrides...</p>
       </div>
-    } @else if (store.filteredShows().length === 0) {
+    } @else if (totalShows === 0) {
       <!-- Empty State -->
       <div class="empty-state">
-        @if (store.filteredShows().length === 0 && store.filterCounts().all === 0) {
+        @if (totalShows === 0 && store.filterCounts().all === 0) {
           <p>
             No anime catalog found. Click <strong>"🔄 Sync Library"</strong> to scan your Jellyfin anime libraries.
           </p>
@@ -55,7 +56,7 @@
       <div class="series-list">
         <app-pagination
           [currentPage]="store.currentPage()"
-          [totalItems]="store.filteredShows().length"
+          [totalItems]="totalShows"
           [pageSize]="store.pageSize()"
           (pageChange)="store.setPage($event)"
           (pageSizeChange)="store.setPageSize($event)"
@@ -88,7 +89,7 @@
 
         <app-pagination
           [currentPage]="store.currentPage()"
-          [totalItems]="store.filteredShows().length"
+          [totalItems]="totalShows"
           [pageSize]="store.pageSize()"
           (pageChange)="store.setPage($event)"
           (pageSizeChange)="store.setPageSize($event)"
@@ -138,20 +139,24 @@
     </div>
   }
 
-  <!-- Modals -->
+  <!-- Modals (deferred to only load code/DOM when opened) -->
   @if (store.isBulkImportOpen()) {
-    <app-bulk-import-modal
-      [isOpen]="store.isBulkImportOpen()"
-      (close)="store.setBulkImportOpen(false)"
-      (synced)="store.loadData()"
-    />
+    @defer (when store.isBulkImportOpen()) {
+      <app-bulk-import-modal
+        [isOpen]="store.isBulkImportOpen()"
+        (close)="store.setBulkImportOpen(false)"
+        (synced)="store.loadData()"
+      />
+    }
   }
 
   @if (store.isRetireOpen()) {
-    <app-retire-redundant-modal
-      [isOpen]="store.isRetireOpen()"
-      (close)="store.setRetireOpen(false)"
-      (retired)="store.loadData()"
-    />
+    @defer (when store.isRetireOpen()) {
+      <app-retire-redundant-modal
+        [isOpen]="store.isRetireOpen()"
+        (close)="store.setRetireOpen(false)"
+        (retired)="store.loadData()"
+      />
+    }
   }
 </div>

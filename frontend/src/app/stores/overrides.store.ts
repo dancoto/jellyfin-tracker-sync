@@ -1,7 +1,7 @@
 import { computed, inject } from '@angular/core';
 import { patchState, signalStore, withComputed, withMethods, withState } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { catchError, of, pipe, switchMap, tap } from 'rxjs';
+import { catchError, mergeMap, of, pipe, switchMap, tap } from 'rxjs';
 import { ApiService } from '../services/api.service';
 import {
   CatalogShow,
@@ -186,7 +186,7 @@ export const OverridesStore = signalStore(
 
     const saveShow = rxMethod<string>(
       pipe(
-        switchMap((tvdbId) => {
+        mergeMap((tvdbId) => {
           const show = store.overridesData()[tvdbId] || { title: '', seasons: {} };
           return api.saveShow(tvdbId, show).pipe(
             tap(() => {
@@ -256,7 +256,7 @@ export const OverridesStore = signalStore(
 
     const cancelAllChanges = () => {
       patchState(store, {
-        overridesData: JSON.parse(JSON.stringify(store.savedOverridesData())),
+        overridesData: structuredClone(store.savedOverridesData()),
         dirtyShows: [],
       });
       showToast('Cancelled all unsaved changes', 'info');
@@ -269,10 +269,10 @@ export const OverridesStore = signalStore(
             syncingSeriesIds: [...store.syncingSeriesIds(), tvdbId],
           });
         }),
-        switchMap((tvdbId) =>
+        mergeMap((tvdbId) =>
           api.syncSeries(tvdbId).pipe(
             tap((res) => {
-              const s = (res as any).summary || res;
+              const s = res.summary;
               if (s.deleted) {
                 const { catalog, overrides, official } = removeSeriesFromCatalog(
                   store.catalogData(),
@@ -297,8 +297,8 @@ export const OverridesStore = signalStore(
                 );
               } else if (s.show) {
                 const cat = { ...store.catalogData(), [tvdbId]: s.show };
-                const off = (res as any).official
-                  ? { ...store.officialData(), [tvdbId]: (res as any).official }
+                const off = res.official
+                  ? { ...store.officialData(), [tvdbId]: res.official }
                   : store.officialData();
 
                 patchState(store, { catalogData: cat, officialData: off });
@@ -331,7 +331,7 @@ export const OverridesStore = signalStore(
         switchMap(() =>
           api.syncLibrary().pipe(
             tap((res) => {
-              const s = (res as any).summary || res;
+              const s = res.summary;
               let msg = `Library synced! Found ${s.catalogShowsCount} shows and ${s.catalogEpisodesCount} episodes.`;
               if (s.prunedOverridesCount && s.prunedOverridesCount > 0) {
                 msg += ` Cleaned up ${s.prunedOverridesCount} deleted override(s).`;

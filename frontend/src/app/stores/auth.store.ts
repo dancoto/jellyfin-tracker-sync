@@ -1,7 +1,7 @@
 import { computed, inject } from '@angular/core';
 import { patchState, signalStore, withComputed, withMethods, withState } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { catchError, of, pipe, switchMap, tap } from 'rxjs';
+import { catchError, mergeMap, of, pipe, switchMap, tap } from 'rxjs';
 import { ApiService } from '../services/api.service';
 import { UsersApiResponse } from '../models/types';
 import { isCustomUser, resolveDefaultUser, resolveTargetUsername } from './auth.store.utils';
@@ -116,7 +116,7 @@ export const AuthStore = signalStore(
             refreshingUsers: [...store.refreshingUsers(), username],
           });
         }),
-        switchMap((username) =>
+        mergeMap((username) =>
           api.refreshUserToken(username).pipe(
             tap(() => {
               showNotification(`Token refreshed successfully for "${username}"`, 'success');

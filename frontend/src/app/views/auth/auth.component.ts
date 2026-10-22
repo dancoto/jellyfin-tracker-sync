@@ -1,6 +1,4 @@
-import { Component, computed, inject, OnInit } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Component, inject, input, OnInit } from '@angular/core';
 import { MatCard, MatCardContent, MatCardHeader, MatCardSubtitle, MatCardTitle } from '@angular/material/card';
 import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
@@ -10,6 +8,7 @@ import { MatOption, MatSelect } from '@angular/material/select';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatTooltip } from '@angular/material/tooltip';
 import { AuthStore } from '../../stores/auth.store';
+import { AniListTokensStatus } from '../../models/types';
 import { getAniListAuthUrl, getSimklAuthUrl } from '../../stores/auth.store.utils';
 
 @Component({
@@ -35,12 +34,11 @@ import { getAniListAuthUrl, getSimklAuthUrl } from '../../stores/auth.store.util
 })
 export class AuthComponent implements OnInit {
   store = inject(AuthStore);
-  private route = inject(ActivatedRoute);
 
-  queryParams = toSignal(this.route.queryParams);
-  successUser = computed(() => this.queryParams()?.['success'] as string | undefined);
-  successService = computed(() => this.queryParams()?.['service'] as string | undefined);
-  errorMessage = computed(() => this.queryParams()?.['error'] as string | undefined);
+  // Router component inputs via withComponentInputBinding()
+  success = input<string>();
+  service = input<string>();
+  error = input<string>();
 
   ngOnInit() {
     this.store.loadUsers();
@@ -52,6 +50,20 @@ export class AuthComponent implements OnInit {
 
   getAniListAuthUrl(username: string): string {
     return getAniListAuthUrl(username);
+  }
+
+  getAniListBadgeClass(anilist: AniListTokensStatus): string {
+    if (!anilist.isValid) return 'badge-danger';
+    if (anilist.expiresInDays !== undefined && anilist.expiresInDays <= 30) {
+      return anilist.expiresInDays <= 0 ? 'badge-danger' : 'badge-warning';
+    }
+    return 'badge-anilist';
+  }
+
+  getAniListExpiryText(anilist: AniListTokensStatus): string {
+    if (anilist.expiresInDays === undefined) return '';
+    if (anilist.expiresInDays <= 0) return 'Expires today';
+    return `Expires in ${anilist.expiresInDays}d${anilist.expiresInDays <= 30 ? ' (re-link soon)' : ''}`;
   }
 
   connectSimkl() {

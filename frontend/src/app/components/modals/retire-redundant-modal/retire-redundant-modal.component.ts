@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject, input, output, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, inject, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
@@ -23,6 +23,13 @@ export class RetireRedundantModalComponent {
   isLoading = signal(false);
   summaryResult = signal<RetireSummary | null>(null);
   errorMessage = signal<string | null>(null);
+
+  @HostListener('window:keydown.escape')
+  onEscape() {
+    if (this.isOpen() && !this.isLoading()) {
+      this.handleClose();
+    }
+  }
 
   handleConfirm() {
     this.isLoading.set(true);

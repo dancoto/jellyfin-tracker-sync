@@ -1,12 +1,13 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpClient, httpResource, HttpResourceRef } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
-  CatalogSyncResult,
+  CatalogSyncApiResponse,
   OverridesApiResponse,
+  RawShowOverride,
   RawTvdbOverrides,
   RetireRedundantResult,
-  SeriesSyncResult,
+  SeriesSyncApiResponse,
   UsersApiResponse,
 } from '../models/types';
 
@@ -15,15 +16,6 @@ import {
 })
 export class ApiService {
   private http = inject(HttpClient);
-
-  // Resource-based reactive GETs (Signals)
-  getUsersResource(): HttpResourceRef<UsersApiResponse | undefined> {
-    return httpResource<UsersApiResponse>(() => '/api/users');
-  }
-
-  getOverridesResource(): HttpResourceRef<OverridesApiResponse | undefined> {
-    return httpResource<OverridesApiResponse>(() => '/api/overrides');
-  }
 
   // Observable-based HTTP GET requests
   getOverrides(): Observable<OverridesApiResponse> {
@@ -43,15 +35,15 @@ export class ApiService {
     return this.http.post<{ status: string }>('/api/overrides', { overrides });
   }
 
-  saveShow(tvdbId: string, show: any): Observable<{ status: string }> {
+  saveShow(tvdbId: string, show: RawShowOverride): Observable<{ status: string }> {
     return this.http.post<{ status: string }>('/api/overrides', { tvdbId, show });
   }
 
   importMappings(options: {
     overwriteExistingManual?: boolean;
     includeNonAnime?: boolean;
-  }): Observable<any> {
-    return this.http.post<any>('/api/overrides/import', options);
+  }): Observable<CatalogSyncApiResponse> {
+    return this.http.post<CatalogSyncApiResponse>('/api/overrides/import', options);
   }
 
   retireRedundantOverrides(options?: { dryRun?: boolean }): Observable<RetireRedundantResult> {
@@ -60,11 +52,11 @@ export class ApiService {
     });
   }
 
-  syncLibrary(): Observable<CatalogSyncResult> {
-    return this.http.post<CatalogSyncResult>('/api/catalog/sync', {});
+  syncLibrary(options?: { pruneDeletedOverrides?: boolean }): Observable<CatalogSyncApiResponse> {
+    return this.http.post<CatalogSyncApiResponse>('/api/catalog/sync', options ?? {});
   }
 
-  syncSeries(tvdbId: string): Observable<SeriesSyncResult> {
-    return this.http.post<SeriesSyncResult>('/api/catalog/sync-series', { tvdbId });
+  syncSeries(tvdbId: string): Observable<SeriesSyncApiResponse> {
+    return this.http.post<SeriesSyncApiResponse>('/api/catalog/sync-series', { tvdbId });
   }
 }

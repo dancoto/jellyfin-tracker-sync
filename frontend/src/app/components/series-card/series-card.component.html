@@ -164,6 +164,7 @@
               type="number"
               class="id-input"
               placeholder="AniList ID"
+              [attr.aria-label]="'AniList ID to apply across Season ' + season.seasonNum"
               [value]="batchInputs()[season.seasonNum] || ''"
               (input)="updateBatchInput(season.seasonNum, $event)"
               (keyup.enter)="handleApplyBatch(season.seasonNum)"
@@ -196,32 +197,32 @@
           <table class="ep-table">
             <thead>
               <tr>
-                <th style="width: 50px;">Ep</th>
+                <th scope="col" style="width: 50px;">Ep</th>
                 @if (!isMovie()) {
-                  <th style="width: 45px; text-align: center;">Disk</th>
+                  <th scope="col" style="width: 45px; text-align: center;">Disk</th>
                 }
-                <th style="min-width: 220px;">Title</th>
-                <th style="width: 190px;">Official AniList</th>
-                <th style="width: 270px;">Override AniList</th>
-                <th style="width: 240px; text-align: center;">Actions</th>
+                <th scope="col" style="min-width: 220px;">Title</th>
+                <th scope="col" style="width: 190px;">Official AniList</th>
+                <th scope="col" style="width: 270px;">Override AniList</th>
+                <th scope="col" style="width: 240px; text-align: center;">Actions</th>
               </tr>
             </thead>
             <tbody>
-              @for (ep of season.episodes; track ep[0]) {
+              @for (ep of season.episodes; track ep.epNum) {
                 <tr
                   app-episode-row
                   [tvdbId]="tvdbId()"
                   [seasonNum]="season.seasonNum"
-                  [epNum]="ep[0]"
-                  [epName]="ep[1].name || ('Episode ' + ep[0])"
-                  [exists]="ep[1].exists ?? (ep[1].locationType ? ep[1].locationType !== 'Virtual' : false)"
+                  [epNum]="ep.epNum"
+                  [epName]="ep.episode.name || ('Episode ' + ep.epNum)"
+                  [exists]="ep.exists"
                   [isMovie]="isMovie()"
-                  [official]="getOfficialEp(season.seasonNum, ep[0])"
-                  [override]="getOverrideEp(season.seasonNum, ep[0])"
-                  (updateField)="updateEpisode.emit({ seasonNum: season.seasonNum, epNum: ep[0], field: $event.field, value: $event.value })"
-                  (useOfficial)="useOfficialEpisode.emit({ seasonNum: season.seasonNum, epNum: ep[0] })"
-                  (toggleSkip)="toggleSkipEpisode.emit({ seasonNum: season.seasonNum, epNum: ep[0] })"
-                  (clearOverride)="clearOverrideEpisode.emit({ seasonNum: season.seasonNum, epNum: ep[0] })"
+                  [official]="ep.official"
+                  [override]="ep.override"
+                  (updateField)="updateEpisode.emit({ seasonNum: season.seasonNum, epNum: ep.epNum, field: $event.field, value: $event.value })"
+                  (useOfficial)="useOfficialEpisode.emit({ seasonNum: season.seasonNum, epNum: ep.epNum })"
+                  (toggleSkip)="toggleSkipEpisode.emit({ seasonNum: season.seasonNum, epNum: ep.epNum })"
+                  (clearOverride)="clearOverrideEpisode.emit({ seasonNum: season.seasonNum, epNum: ep.epNum })"
                 ></tr>
               }
             </tbody>

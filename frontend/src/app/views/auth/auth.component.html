@@ -1,24 +1,24 @@
 <div class="container auth-view">
   <!-- Success / Error / Action Alerts -->
-  @if (successUser(); as user) {
+  @if (success(); as user) {
     <div class="alert alert-success">
       <span class="alert-icon">✓</span>
       <div>
         <strong>Successfully Authenticated!</strong>
         <p>
           Token for user <strong>"{{ user }}"</strong> has been saved for
-          {{ successService() === 'anilist' ? 'AniList' : 'Simkl' }}.
+          {{ service() === 'anilist' ? 'AniList' : 'Simkl' }}.
         </p>
       </div>
     </div>
   }
 
-  @if (errorMessage() || store.error()) {
+  @if (error() || store.error()) {
     <div class="alert alert-danger">
       <span class="alert-icon">⚠</span>
       <div>
         <strong>Authentication Error</strong>
-        <p>{{ errorMessage() || store.error() }}</p>
+        <p>{{ error() || store.error() }}</p>
       </div>
     </div>
   }
@@ -243,17 +243,17 @@
             <table class="users-table">
               <thead>
                 <tr>
-                  <th>Jellyfin User</th>
-                  <th>Simkl Status</th>
-                  <th>AniList Status</th>
-                  <th>Actions</th>
+                  <th scope="col">Jellyfin User</th>
+                  <th scope="col">Simkl Status</th>
+                  <th scope="col">AniList Status</th>
+                  <th scope="col">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 @for (user of data.users; track user.username) {
                   <tr>
                     <td class="username-cell">
-                      <div class="user-avatar">{{ user.username.slice(0, 2).toUpperCase() }}</div>
+                      <div class="user-avatar" aria-hidden="true">{{ user.username.slice(0, 2).toUpperCase() }}</div>
                       <strong>{{ user.username }}</strong>
                     </td>
 
@@ -296,7 +296,7 @@
                         <div class="token-status">
                           <span
                             class="badge"
-                            [class]="user.anilist.isValid ? (user.anilist.expiresInDays !== undefined && user.anilist.expiresInDays <= 30 ? (user.anilist.expiresInDays <= 0 ? 'badge-danger' : 'badge-warning') : 'badge-anilist') : 'badge-danger'"
+                            [class]="getAniListBadgeClass(user.anilist)"
                           >
                             {{ user.anilist.isValid ? '✓ Connected' : '✕ Invalid / Expired' }}
                           </span>
@@ -311,7 +311,7 @@
                               [class.text-warn]="user.anilist.expiresInDays <= 30 && user.anilist.expiresInDays > 0"
                               [class.text-danger]="user.anilist.expiresInDays <= 0"
                             >
-                              {{ user.anilist.expiresInDays <= 0 ? 'Expires today' : 'Expires in ' + user.anilist.expiresInDays + 'd' + (user.anilist.expiresInDays <= 30 ? ' (re-link soon)' : '') }}
+                              {{ getAniListExpiryText(user.anilist) }}
                             </span>
                           }
                         </div>
@@ -330,6 +330,7 @@
                           mat-stroked-button
                           class="action-sm-btn"
                           [disabled]="isRefreshing"
+                          [attr.aria-label]="'Refresh Simkl token for ' + user.username"
                           matTooltip="Manually trigger OAuth token refresh for Simkl"
                           (click)="store.refreshUser(user.username)"
                         >
@@ -341,6 +342,7 @@
                           mat-stroked-button
                           [href]="getSimklAuthUrl(user.username)"
                           class="action-sm-btn btn-simkl"
+                          [attr.aria-label]="(user.simkl.isValid ? 'Re-link' : 'Link') + ' Simkl account for ' + user.username"
                         >
                           {{ user.simkl.isValid ? 'Re-link Simkl' : 'Link Simkl' }}
                         </a>
@@ -350,6 +352,7 @@
                           mat-stroked-button
                           [href]="getAniListAuthUrl(user.username)"
                           class="action-sm-btn btn-anilist"
+                          [attr.aria-label]="(user.anilist.isValid ? 'Re-link' : 'Link') + ' AniList account for ' + user.username"
                         >
                           {{ user.anilist.isValid ? 'Re-link AniList' : 'Link AniList' }}
                         </a>

@@ -7,13 +7,14 @@
         type="text"
         [value]="search()"
         placeholder="Search by title or TVDB ID..."
+        aria-label="Search anime shows by title or TVDB ID"
         (input)="onSearchInput($event)"
       />
     </mat-form-field>
 
     <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sort-field">
       <mat-label>Sort By</mat-label>
-      <mat-select [value]="sort()" (selectionChange)="sortChange.emit($event.value)">
+      <mat-select [value]="sort()" (selectionChange)="setSort($event.value)" aria-label="Sort anime shows">
         <mat-option value="missing-desc">🌸 Most Missing AniList</mat-option>
         <mat-option value="overridden-desc">⚡ Most Custom Overrides</mat-option>
         <mat-option value="missing-asc">Least Missing AniList</mat-option>
@@ -27,12 +28,14 @@
     @let counts = filterCounts();
     @let f = filter();
 
-    <div class="filter-tabs">
+    <div class="filter-tabs" role="tablist" aria-label="Anime filter categories">
       <button
         mat-stroked-button
         class="filter-tab-btn"
+        role="tab"
         [class.active]="f === 'all'"
-        (click)="filterChange.emit('all')"
+        [attr.aria-selected]="f === 'all'"
+        (click)="setFilter('all')"
       >
         All
         @if (counts) {
@@ -43,8 +46,10 @@
       <button
         mat-stroked-button
         class="filter-tab-btn"
+        role="tab"
         [class.active]="f === 'unmapped' || f === 'missing-anilist'"
-        (click)="filterChange.emit('unmapped')"
+        [attr.aria-selected]="f === 'unmapped' || f === 'missing-anilist'"
+        (click)="setFilter('unmapped')"
       >
         🌸 Missing
         @if (counts) {
@@ -55,8 +60,10 @@
       <button
         mat-stroked-button
         class="filter-tab-btn"
+        role="tab"
         [class.active]="f === 'overrides' || f === 'overridden'"
-        (click)="filterChange.emit('overrides')"
+        [attr.aria-selected]="f === 'overrides' || f === 'overridden'"
+        (click)="setFilter('overrides')"
       >
         ⚡ Overrides
         @if (counts) {
@@ -67,8 +74,10 @@
       <button
         mat-stroked-button
         class="filter-tab-btn"
+        role="tab"
         [class.active]="f === 'skipped' || f === 'skipped-anilist'"
-        (click)="filterChange.emit('skipped')"
+        [attr.aria-selected]="f === 'skipped' || f === 'skipped-anilist'"
+        (click)="setFilter('skipped')"
       >
         🌸 Skipped
         @if (counts) {
@@ -79,8 +88,10 @@
       <button
         mat-stroked-button
         class="filter-tab-btn"
+        role="tab"
         [class.active]="f === 'mapped' || f === 'complete'"
-        (click)="filterChange.emit('mapped')"
+        [attr.aria-selected]="f === 'mapped' || f === 'complete'"
+        (click)="setFilter('mapped')"
       >
         Completed
         @if (counts) {
@@ -130,8 +141,9 @@
         mat-stroked-button
         class="ctrl-btn private-toggle-btn"
         [class.active]="includePrivate()"
+        [attr.aria-pressed]="includePrivate()"
         matTooltip="Include or exclude items from private anime libraries"
-        (click)="includePrivateChange.emit(!includePrivate())"
+        (click)="togglePrivate()"
       >
         <mat-icon class="btn-icon">{{ includePrivate() ? 'lock_open' : 'lock' }}</mat-icon>
         {{ includePrivate() ? 'Private Included' : 'Include Private' }}
