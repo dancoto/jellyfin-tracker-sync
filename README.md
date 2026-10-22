@@ -313,8 +313,8 @@ services:
     volumes:
       # Mount configuration file:
       - ./config.toml:/config/config.toml:rw
-      # Persist SQLite catalog database and mapping overrides:
-      - ./data/anime-catalog.db:/config/anime-catalog.db:rw
+      # Persist SQLite catalog database (and WAL files) and mapping overrides:
+      - ./data:/config/data:rw
       - ./mapping-overrides.json:/config/mapping-overrides.json:rw
       # Persist downloaded anime mapping caches (~11MB) across container restarts:
       - mapping-cache:/config/cache:rw
@@ -326,7 +326,7 @@ volumes:
 ```
 
 > [!TIP]
-> The volume mounts store your `config.toml`, `mapping-overrides.json`, and `anime-catalog.db`. All token auto-refreshes, database updates, and UI edits persist cleanly across container restarts and updates.
+> The volume mounts store your `config.toml`, `mapping-overrides.json`, and `./data` directory (containing `anime-catalog.db` alongside its WAL journal files). Mounting the `./data` directory rather than a single `.db` file allows SQLite to dynamically create and checkpoint `anime-catalog.db-wal` and `anime-catalog.db-shm` without permission errors or data loss. All token auto-refreshes, database updates, and UI edits persist cleanly across container restarts and updates.
 
 ---
 
